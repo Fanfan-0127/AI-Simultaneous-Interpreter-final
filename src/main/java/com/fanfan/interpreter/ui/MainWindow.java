@@ -3,6 +3,7 @@ package com.fanfan.interpreter.ui;
 import com.fanfan.interpreter.asr.AsrClient;
 import com.fanfan.interpreter.asr.QwenRealtimeAsrClient;
 import com.fanfan.interpreter.asr.StableTranscriptScheduler;
+import com.fanfan.interpreter.asr.TranscriptCorrector;
 import com.fanfan.interpreter.audio.AudioCaptureService;
 import com.fanfan.interpreter.audio.AudioSource;
 import com.fanfan.interpreter.config.AppConfig;
@@ -235,8 +236,9 @@ public final class MainWindow extends JFrame {
     }
 
     private void onStableTranscript(String text, boolean finalResult) {
+        String correctedText = TranscriptCorrector.correct(text);
         SwingUtilities.invokeLater(() -> {
-            SubtitleUpdate update = subtitleStore.applyTranscript(text, finalResult);
+            SubtitleUpdate update = subtitleStore.applyTranscript(correctedText, finalResult);
             subtitleTableModel.setEntries(update.entries());
             correctionTableModel.setRevisions(update.revisions());
             updateLiveSubtitle(update.entry());
