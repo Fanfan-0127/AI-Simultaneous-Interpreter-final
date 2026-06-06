@@ -8,6 +8,7 @@ import com.fanfan.interpreter.audio.AudioCaptureService;
 import com.fanfan.interpreter.audio.AudioLevel;
 import com.fanfan.interpreter.audio.AudioSource;
 import com.fanfan.interpreter.config.AppConfig;
+import com.fanfan.interpreter.config.ConfigValidator;
 import com.fanfan.interpreter.export.SubtitleTxtExporter;
 import com.fanfan.interpreter.model.SubtitleEntry;
 import com.fanfan.interpreter.model.SubtitleRevision;
@@ -85,6 +86,10 @@ public final class MainWindow extends JFrame {
         setMinimumSize(new Dimension(900, 620));
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(12, 12));
+
+        ConfigValidator.ValidationResult validation = ConfigValidator.validate(config);
+        ConfigValidator.showValidationResult(validation);
+
         add(buildToolbar(), BorderLayout.NORTH);
         add(buildContent(), BorderLayout.CENTER);
         refreshSources();
