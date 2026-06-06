@@ -5,6 +5,7 @@ import com.fanfan.interpreter.asr.QwenRealtimeAsrClient;
 import com.fanfan.interpreter.audio.AudioCaptureService;
 import com.fanfan.interpreter.audio.AudioSource;
 import com.fanfan.interpreter.config.AppConfig;
+import com.fanfan.interpreter.export.SubtitleTxtExporter;
 import com.fanfan.interpreter.model.SubtitleEntry;
 import com.fanfan.interpreter.model.SubtitleRevision;
 import com.fanfan.interpreter.model.SubtitleRevisionType;
@@ -17,6 +18,7 @@ import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -32,6 +34,10 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -51,6 +57,7 @@ public final class MainWindow extends JFrame {
     private final JButton refreshButton = new JButton("刷新音频源");
     private final JButton startButton = new JButton("开始");
     private final JButton stopButton = new JButton("结束");
+    private final JButton exportButton = new JButton("保存字幕");
     private final JLabel statusLabel = new JLabel("未监听");
     private final SubtitleTableModel subtitleTableModel = new SubtitleTableModel();
     private final CorrectionTableModel correctionTableModel = new CorrectionTableModel();
@@ -81,6 +88,7 @@ public final class MainWindow extends JFrame {
         panel.add(refreshButton);
         panel.add(startButton);
         panel.add(stopButton);
+        panel.add(exportButton);
         panel.add(statusLabel);
         return panel;
     }
@@ -119,6 +127,7 @@ public final class MainWindow extends JFrame {
         refreshButton.addActionListener(event -> refreshSources());
         startButton.addActionListener(event -> startSession());
         stopButton.addActionListener(event -> stopSession());
+        exportButton.addActionListener(event -> exportSubtitles());
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosed(WindowEvent event) {
                 stopSession();
@@ -188,6 +197,29 @@ public final class MainWindow extends JFrame {
                 SwingUtilities.invokeLater(() -> statusLabel.setText("已结束"));
             }
         });
+    }
+
+    private void exportSubtitles() {
+        List<SubtitleEntry> entries = subtitleStore.snapshot();
+        if (entries.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "当前没有可保存的字幕。", "保存字幕", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("保存字幕");
+        chooser.setSelectedFile(new File(defaultExportFileName()));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+        try {
+            SubtitleTxtExporter.export(entries, chooser.getSelectedFile().toPath());
+            statusLabel.setText("字幕已保存");
+        } catch (IOException exception) {
+            JOptionPane.showMessageDialog(this, exception.getMessage(), "保存失败", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private static String defaultExportFileName() {
+        String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        return "subtitles-" + ts + ".txt";
     }
 
     private void onTranscript(String text, boolean finalResult) {
