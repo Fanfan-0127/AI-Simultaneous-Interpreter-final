@@ -5,6 +5,7 @@ import com.fanfan.interpreter.asr.QwenRealtimeAsrClient;
 import com.fanfan.interpreter.asr.StableTranscriptScheduler;
 import com.fanfan.interpreter.asr.TranscriptCorrector;
 import com.fanfan.interpreter.audio.AudioCaptureService;
+import com.fanfan.interpreter.audio.AudioLevel;
 import com.fanfan.interpreter.audio.AudioSource;
 import com.fanfan.interpreter.config.AppConfig;
 import com.fanfan.interpreter.export.SubtitleTxtExporter;
@@ -62,6 +63,7 @@ public final class MainWindow extends JFrame {
     private final JButton stopButton = new JButton("结束");
     private final JButton exportButton = new JButton("保存字幕");
     private final JLabel statusLabel = new JLabel("未监听");
+    private final JLabel audioStatusLabel = new JLabel("音频未启动");
     private final SubtitleTableModel subtitleTableModel = new SubtitleTableModel();
     private final CorrectionTableModel correctionTableModel = new CorrectionTableModel();
     private final JTextArea liveSubtitle = new JTextArea();
@@ -95,6 +97,7 @@ public final class MainWindow extends JFrame {
         panel.add(stopButton);
         panel.add(exportButton);
         panel.add(statusLabel);
+        panel.add(audioStatusLabel);
         return panel;
     }
 
@@ -160,6 +163,7 @@ public final class MainWindow extends JFrame {
         startButton.setEnabled(false);
         refreshButton.setEnabled(false);
         statusLabel.setText("正在连接 Qwen ASR...");
+        audioStatusLabel.setText("音频准备中");
         subtitleStore.clear();
         stableTranscriptScheduler.clear();
         subtitleTableModel.setEntries(List.of());
@@ -173,16 +177,18 @@ public final class MainWindow extends JFrame {
                 AsrClient client = new QwenRealtimeAsrClient(config);
                 client.start(this::onTranscript);
                 asrClient = client;
-                audioCaptureService.start(selectedSource, client::appendPcm);
+                audioCaptureService.start(selectedSource, client::appendPcm, (chunk, level) -> onAudioLevel(level));
                 SwingUtilities.invokeLater(() -> {
                     stopButton.setEnabled(true);
                     statusLabel.setText("正在监听 / 正在识别 / 正在翻译");
+                    audioStatusLabel.setText("音频监听中");
                 });
             } catch (Exception exception) {
                 SwingUtilities.invokeLater(() -> {
                     startButton.setEnabled(true);
                     refreshButton.setEnabled(true);
                     statusLabel.setText("启动失败");
+                    audioStatusLabel.setText("音频未启动");
                     JOptionPane.showMessageDialog(this, exception.getMessage(), "启动失败", JOptionPane.ERROR_MESSAGE);
                 });
             }
@@ -194,6 +200,7 @@ public final class MainWindow extends JFrame {
         refreshButton.setEnabled(true);
         stopButton.setEnabled(false);
         statusLabel.setText("正在结束...");
+        audioStatusLabel.setText("音频未启动");
         audioCaptureService.stop();
         AsrClient client = asrClient;
         asrClient = null;
@@ -258,6 +265,18 @@ public final class MainWindow extends JFrame {
 
     private void onTranslationError(Exception exception) {
         SwingUtilities.invokeLater(() -> statusLabel.setText("翻译失败: " + exception.getMessage()));
+    }
+
+    private void onAudioLevel(AudioLevel level) {
+        SwingUtilities.invokeLater(() -> {
+            if (asrClient == null) return;
+            audioStatusLabel.setText(switch (level.quality()) {
+                case SILENT -> "音频静音";
+                case LOW -> "音量偏低";
+                case CLIPPING -> "爆音风险";
+                case NORMAL -> "音频正常";
+            });
+        });
     }
 
     private void updateLiveSubtitle(SubtitleEntry entry) {
