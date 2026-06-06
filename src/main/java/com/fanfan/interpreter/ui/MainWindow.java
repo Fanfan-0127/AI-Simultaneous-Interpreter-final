@@ -10,6 +10,7 @@ import com.fanfan.interpreter.audio.AudioSource;
 import com.fanfan.interpreter.config.AppConfig;
 import com.fanfan.interpreter.config.ConfigValidator;
 import com.fanfan.interpreter.export.SubtitleTxtExporter;
+import com.fanfan.interpreter.metrics.LatencyTracker;
 import com.fanfan.interpreter.model.SubtitleEntry;
 import com.fanfan.interpreter.model.SubtitleRevision;
 import com.fanfan.interpreter.model.SubtitleRevisionType;
@@ -52,6 +53,7 @@ public final class MainWindow extends JFrame {
     private final AppConfig config = AppConfig.fromEnvironment();
     private final SubtitleStore subtitleStore = new SubtitleStore();
     private final AudioCaptureService audioCaptureService = new AudioCaptureService();
+    private final LatencyTracker latencyTracker = new LatencyTracker();
     private final TranslationScheduler translationScheduler = new TranslationScheduler(new QwenMtTranslator(config));
     private final StableTranscriptScheduler stableTranscriptScheduler = new StableTranscriptScheduler(config.asrStabilityDelayMs());
     private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor(runnable -> {
@@ -70,6 +72,7 @@ public final class MainWindow extends JFrame {
     private final JButton translationColorButton = new JButton("译文颜色");
     private final JLabel statusLabel = new JLabel("未监听");
     private final JLabel audioStatusLabel = new JLabel("音频未启动");
+    private final JLabel latencyLabel = new JLabel("延迟: --");
     private final SubtitleTableModel subtitleTableModel = new SubtitleTableModel();
     private final CorrectionTableModel correctionTableModel = new CorrectionTableModel();
     private final JTextArea liveSubtitle = new JTextArea();
@@ -113,6 +116,7 @@ public final class MainWindow extends JFrame {
         panel.add(translationColorButton);
         panel.add(statusLabel);
         panel.add(audioStatusLabel);
+        panel.add(latencyLabel);
         return panel;
     }
 
@@ -184,6 +188,7 @@ public final class MainWindow extends JFrame {
         audioStatusLabel.setText("音频准备中");
         subtitleStore.clear();
         stableTranscriptScheduler.clear();
+        latencyTracker.reset();
         subtitleTableModel.setEntries(List.of());
         correctionTableModel.setRevisions(List.of());
         previewSourceText = "等待识别结果...";
@@ -219,6 +224,7 @@ public final class MainWindow extends JFrame {
         stopButton.setEnabled(false);
         statusLabel.setText("正在结束...");
         audioStatusLabel.setText("音频未启动");
+        latencyLabel.setText("延迟: --");
         audioCaptureService.stop();
         AsrClient client = asrClient;
         asrClient = null;
@@ -280,6 +286,7 @@ public final class MainWindow extends JFrame {
     }
 
     private void onTranscript(String text, boolean finalResult) {
+        latencyTracker.markAsrReceived();
         stableTranscriptScheduler.accept(text, finalResult, this::onStableTranscript);
     }
 
@@ -290,22 +297,35 @@ public final class MainWindow extends JFrame {
             subtitleTableModel.setEntries(update.entries());
             correctionTableModel.setRevisions(update.revisions());
             updateLiveSubtitle(update.entry());
+            latencyTracker.markTranslationStarted();
             translationScheduler.translate(update.entry(), finalResult, this::onTranslation, this::onTranslationError);
         });
     }
 
     private void onTranslation(TranslationScheduler.TranslationResult result) {
+        latencyTracker.markTranslationCompleted();
         SwingUtilities.invokeLater(() -> {
             List<SubtitleEntry> entries = subtitleStore.applyTranslation(
                     result.entryId(), result.sourceVersion(), result.translatedText());
             subtitleTableModel.setEntries(entries);
             correctionTableModel.setRevisions(subtitleStore.revisionSnapshot());
             updateLiveSubtitle(entries.isEmpty() ? null : entries.getLast());
+            updateLatencyDisplay();
         });
     }
 
     private void onTranslationError(Exception exception) {
-        SwingUtilities.invokeLater(() -> statusLabel.setText("翻译失败: " + exception.getMessage()));
+        latencyTracker.markTranslationCompleted();
+        SwingUtilities.invokeLater(() -> {
+            statusLabel.setText("翻译失败: " + exception.getMessage());
+            updateLatencyDisplay();
+        });
+    }
+
+    private void updateLatencyDisplay() {
+        SwingUtilities.invokeLater(() -> {
+            latencyLabel.setText("延迟: " + latencyTracker.getStatusSummary());
+        });
     }
 
     private void onAudioLevel(AudioLevel level) {
