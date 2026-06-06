@@ -6,8 +6,12 @@ import com.fanfan.interpreter.audio.AudioCaptureService;
 import com.fanfan.interpreter.audio.AudioSource;
 import com.fanfan.interpreter.config.AppConfig;
 import com.fanfan.interpreter.model.SubtitleEntry;
+import com.fanfan.interpreter.model.SubtitleRevision;
+import com.fanfan.interpreter.model.SubtitleRevisionType;
 import com.fanfan.interpreter.model.SubtitleStore;
 import com.fanfan.interpreter.model.SubtitleStore.SubtitleUpdate;
+import com.fanfan.interpreter.translation.QwenMtTranslator;
+import com.fanfan.interpreter.translation.TranslationScheduler;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
@@ -36,6 +40,7 @@ public final class MainWindow extends JFrame {
     private final AppConfig config = AppConfig.fromEnvironment();
     private final SubtitleStore subtitleStore = new SubtitleStore();
     private final AudioCaptureService audioCaptureService = new AudioCaptureService();
+    private final TranslationScheduler translationScheduler = new TranslationScheduler(new QwenMtTranslator(config));
     private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "session-control");
         thread.setDaemon(true);
@@ -48,6 +53,7 @@ public final class MainWindow extends JFrame {
     private final JButton stopButton = new JButton("结束");
     private final JLabel statusLabel = new JLabel("未监听");
     private final SubtitleTableModel subtitleTableModel = new SubtitleTableModel();
+    private final CorrectionTableModel correctionTableModel = new CorrectionTableModel();
     private final JTextArea liveSubtitle = new JTextArea();
     private volatile AsrClient asrClient;
     private String previewSourceText = "等待识别结果...";
@@ -56,7 +62,7 @@ public final class MainWindow extends JFrame {
     public MainWindow() {
         super("AI 同声传译助手");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setMinimumSize(new Dimension(900, 450));
+        setMinimumSize(new Dimension(900, 620));
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(12, 12));
         add(buildToolbar(), BorderLayout.NORTH);
@@ -85,14 +91,27 @@ public final class MainWindow extends JFrame {
         table.getColumnModel().getColumn(0).setPreferredWidth(180);
         table.getColumnModel().getColumn(1).setPreferredWidth(520);
         table.getColumnModel().getColumn(2).setPreferredWidth(240);
+
+        JTable correctionTable = new JTable(correctionTableModel);
+        correctionTable.setRowHeight(30);
+        correctionTable.getColumnModel().getColumn(0).setPreferredWidth(180);
+        correctionTable.getColumnModel().getColumn(1).setPreferredWidth(120);
+        correctionTable.getColumnModel().getColumn(2).setPreferredWidth(360);
+        correctionTable.getColumnModel().getColumn(3).setPreferredWidth(360);
+
         liveSubtitle.setEditable(false);
         liveSubtitle.setLineWrap(true);
         liveSubtitle.setWrapStyleWord(true);
         liveSubtitle.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
         liveSubtitle.setText("等待识别结果...");
+
+        JSplitPane recordsPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
+                new JScrollPane(table), new JScrollPane(correctionTable));
+        recordsPane.setResizeWeight(0.68);
+
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-                new JScrollPane(table), new JScrollPane(liveSubtitle));
-        splitPane.setResizeWeight(0.75);
+                recordsPane, new JScrollPane(liveSubtitle));
+        splitPane.setResizeWeight(0.78);
         return splitPane;
     }
 
@@ -104,6 +123,7 @@ public final class MainWindow extends JFrame {
             @Override public void windowClosed(WindowEvent event) {
                 stopSession();
                 audioCaptureService.close();
+                translationScheduler.close();
                 controlExecutor.shutdownNow();
             }
         });
@@ -126,6 +146,7 @@ public final class MainWindow extends JFrame {
         statusLabel.setText("正在连接 Qwen ASR...");
         subtitleStore.clear();
         subtitleTableModel.setEntries(List.of());
+        correctionTableModel.setRevisions(List.of());
         previewSourceText = "等待识别结果...";
         previewTranslatedText = "";
         liveSubtitle.setText(previewText(previewSourceText, previewTranslatedText));
@@ -137,7 +158,7 @@ public final class MainWindow extends JFrame {
                 audioCaptureService.start(selectedSource, client::appendPcm);
                 SwingUtilities.invokeLater(() -> {
                     stopButton.setEnabled(true);
-                    statusLabel.setText("正在监听 / 正在识别");
+                    statusLabel.setText("正在监听 / 正在识别 / 正在翻译");
                 });
             } catch (Exception exception) {
                 SwingUtilities.invokeLater(() -> {
@@ -173,14 +194,31 @@ public final class MainWindow extends JFrame {
         SwingUtilities.invokeLater(() -> {
             SubtitleUpdate update = subtitleStore.applyTranscript(text, finalResult);
             subtitleTableModel.setEntries(update.entries());
+            correctionTableModel.setRevisions(update.revisions());
             updateLiveSubtitle(update.entry());
+            translationScheduler.translate(update.entry(), finalResult, this::onTranslation, this::onTranslationError);
         });
+    }
+
+    private void onTranslation(TranslationScheduler.TranslationResult result) {
+        SwingUtilities.invokeLater(() -> {
+            List<SubtitleEntry> entries = subtitleStore.applyTranslation(
+                    result.entryId(), result.sourceVersion(), result.translatedText());
+            subtitleTableModel.setEntries(entries);
+            correctionTableModel.setRevisions(subtitleStore.revisionSnapshot());
+            updateLiveSubtitle(entries.isEmpty() ? null : entries.getLast());
+        });
+    }
+
+    private void onTranslationError(Exception exception) {
+        SwingUtilities.invokeLater(() -> statusLabel.setText("翻译失败: " + exception.getMessage()));
     }
 
     private void updateLiveSubtitle(SubtitleEntry entry) {
         if (entry == null) return;
+        String translated = entry.translatedText().isBlank() ? "翻译中..." : entry.translatedText();
         previewSourceText = entry.sourceText();
-        previewTranslatedText = entry.translatedText().isBlank() ? "" : entry.translatedText();
+        previewTranslatedText = translated;
         liveSubtitle.setText(previewText(previewSourceText, previewTranslatedText));
     }
 
@@ -211,6 +249,48 @@ public final class MainWindow extends JFrame {
                 case 1 -> entry.sourceText();
                 case 2 -> entry.translatedText();
                 default -> "";
+            };
+        }
+    }
+
+    static final class CorrectionTableModel extends AbstractTableModel {
+        private static final int MAX_ROWS = 30;
+        private final String[] columns = {"时间", "类型", "修正前", "修正后"};
+        private List<SubtitleRevision> revisions = List.of();
+
+        void setRevisions(List<SubtitleRevision> revisions) {
+            List<SubtitleRevision> filtered = revisions.stream()
+                    .filter(CorrectionTableModel::isCorrection).toList();
+            int fromIndex = Math.max(0, filtered.size() - MAX_ROWS);
+            this.revisions = filtered.subList(fromIndex, filtered.size()).reversed();
+            fireTableDataChanged();
+        }
+
+        @Override public int getRowCount() { return revisions.size(); }
+        @Override public int getColumnCount() { return columns.length; }
+        @Override public String getColumnName(int column) { return columns[column]; }
+
+        @Override
+        public Object getValueAt(int rowIndex, int columnIndex) {
+            SubtitleRevision revision = revisions.get(rowIndex);
+            return switch (columnIndex) {
+                case 0 -> revision.createdAt().toString();
+                case 1 -> labelFor(revision.type());
+                case 2 -> beforeText(revision);
+                case 3 -> afterText(revision);
+                default -> "";
+            };
+        }
+
+        private static boolean isCorrection(SubtitleRevision r) { return r.type() == SubtitleRevisionType.MT_CORRECTION; }
+        private static String beforeText(SubtitleRevision r) { return r.oldTranslatedText(); }
+        private static String afterText(SubtitleRevision r) { return r.newTranslatedText(); }
+
+        private static String labelFor(SubtitleRevisionType type) {
+            return switch (type) {
+                case ASR_UPDATE -> "识别修正";
+                case MT_DRAFT -> "翻译初稿";
+                case MT_CORRECTION -> "翻译修正";
             };
         }
     }
