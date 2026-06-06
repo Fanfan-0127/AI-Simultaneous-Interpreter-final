@@ -20,6 +20,7 @@ import com.fanfan.interpreter.translation.TranslationScheduler;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JColorChooser;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -33,6 +34,7 @@ import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.WindowAdapter;
@@ -62,12 +64,17 @@ public final class MainWindow extends JFrame {
     private final JButton startButton = new JButton("开始");
     private final JButton stopButton = new JButton("结束");
     private final JButton exportButton = new JButton("保存字幕");
+    private final JButton lockFloatingButton = new JButton("锁定悬浮窗");
+    private final JButton sourceColorButton = new JButton("原文颜色");
+    private final JButton translationColorButton = new JButton("译文颜色");
     private final JLabel statusLabel = new JLabel("未监听");
     private final JLabel audioStatusLabel = new JLabel("音频未启动");
     private final SubtitleTableModel subtitleTableModel = new SubtitleTableModel();
     private final CorrectionTableModel correctionTableModel = new CorrectionTableModel();
     private final JTextArea liveSubtitle = new JTextArea();
     private final FloatingSubtitleWindow floatingSubtitleWindow = new FloatingSubtitleWindow();
+    private Color floatingSourceColor = Color.WHITE;
+    private Color floatingTranslationColor = new Color(255, 230, 150);
     private volatile AsrClient asrClient;
     private String previewSourceText = "等待识别结果...";
     private String previewTranslatedText = "";
@@ -96,6 +103,9 @@ public final class MainWindow extends JFrame {
         panel.add(startButton);
         panel.add(stopButton);
         panel.add(exportButton);
+        panel.add(lockFloatingButton);
+        panel.add(sourceColorButton);
+        panel.add(translationColorButton);
         panel.add(statusLabel);
         panel.add(audioStatusLabel);
         return panel;
@@ -136,6 +146,9 @@ public final class MainWindow extends JFrame {
         startButton.addActionListener(event -> startSession());
         stopButton.addActionListener(event -> stopSession());
         exportButton.addActionListener(event -> exportSubtitles());
+        lockFloatingButton.addActionListener(event -> toggleFloatingWindowLock());
+        sourceColorButton.addActionListener(event -> chooseFloatingTextColor(true));
+        translationColorButton.addActionListener(event -> chooseFloatingTextColor(false));
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosed(WindowEvent event) {
                 stopSession();
@@ -236,6 +249,29 @@ public final class MainWindow extends JFrame {
     private static String defaultExportFileName() {
         String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
         return "subtitles-" + ts + ".txt";
+    }
+
+    private void toggleFloatingWindowLock() {
+        boolean nextLocked = !floatingSubtitleWindow.isLocked();
+        floatingSubtitleWindow.setLocked(nextLocked);
+        lockFloatingButton.setText(nextLocked ? "解锁悬浮窗" : "锁定悬浮窗");
+        statusLabel.setText(nextLocked ? "悬浮窗已锁定" : "悬浮窗已解锁");
+    }
+
+    private void chooseFloatingTextColor(boolean sourceText) {
+        Color initialColor = sourceText ? floatingSourceColor : floatingTranslationColor;
+        Color selectedColor = JColorChooser.showDialog(this,
+                sourceText ? "选择原文颜色" : "选择译文颜色", initialColor);
+        if (selectedColor == null) return;
+        if (sourceText) {
+            floatingSourceColor = selectedColor;
+            floatingSubtitleWindow.setSourceTextColor(selectedColor);
+            statusLabel.setText("已更新原文颜色");
+        } else {
+            floatingTranslationColor = selectedColor;
+            floatingSubtitleWindow.setTranslationTextColor(selectedColor);
+            statusLabel.setText("已更新译文颜色");
+        }
     }
 
     private void onTranscript(String text, boolean finalResult) {
