@@ -4,3 +4,5 @@ dependency-reduced-pom.xml
 .idea/
 *.iml
 .vscode/
+Qwen-ASR-Realtime-JavaSDK.md
+requirements.md
