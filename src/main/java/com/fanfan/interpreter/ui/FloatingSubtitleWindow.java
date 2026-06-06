@@ -173,6 +173,7 @@ public final class FloatingSubtitleWindow extends JWindow {
     private void applyInteractionState() {
         setAlwaysOnTop(true);
         setFocusableWindowState(!locked);
+        WindowsWindowHitTestController.apply(this, locked);
     }
 
     private static void configureTextArea(JTextArea textArea, int size, Color color) {
