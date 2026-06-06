@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class SubtitleStore {
+    private static final int MAX_DRAFT_SOURCE_CHARACTERS = 220;
     private final List<SubtitleEntry> entries = new CopyOnWriteArrayList<>();
     private final List<SubtitleRevision> revisions = new CopyOnWriteArrayList<>();
     private volatile SubtitleEntry activeEntry;
@@ -18,12 +19,25 @@ public final class SubtitleStore {
             activeEntry = new SubtitleEntry(normalizedText, finalResult);
             entries.add(activeEntry);
             SubtitleEntry updatedEntry = activeEntry;
-            if (finalResult) activeEntry = null;
+            if (finalResult) {
+                activeEntry = null;
+            }
+            return new SubtitleUpdate(updatedEntry, snapshot(), revisionSnapshot());
+        }
+        if (shouldStartNewDraft(normalizedText)) {
+            activeEntry = new SubtitleEntry(splitDraftText(normalizedText), finalResult);
+            entries.add(activeEntry);
+            SubtitleEntry updatedEntry = activeEntry;
+            if (finalResult) {
+                activeEntry = null;
+            }
             return new SubtitleUpdate(updatedEntry, snapshot(), revisionSnapshot());
         }
         activeEntry.update(normalizedText, finalResult);
         SubtitleEntry updatedEntry = activeEntry;
-        if (finalResult) activeEntry = null;
+        if (finalResult) {
+            activeEntry = null;
+        }
         return new SubtitleUpdate(updatedEntry, snapshot(), revisionSnapshot());
     }
 
@@ -38,8 +52,13 @@ public final class SubtitleStore {
         return snapshot();
     }
 
-    public List<SubtitleEntry> snapshot() { return new ArrayList<>(entries); }
-    public List<SubtitleRevision> revisionSnapshot() { return new ArrayList<>(revisions); }
+    public List<SubtitleEntry> snapshot() {
+        return new ArrayList<>(entries);
+    }
+
+    public List<SubtitleRevision> revisionSnapshot() {
+        return new ArrayList<>(revisions);
+    }
 
     public synchronized void clear() {
         entries.clear();
@@ -48,8 +67,32 @@ public final class SubtitleStore {
     }
 
     private void addRevisionIfChanged(SubtitleRevision revision) {
-        if (revision.hasVisibleChange()) revisions.add(revision);
+        if (revision.hasVisibleChange()) {
+            revisions.add(revision);
+        }
     }
 
-    public record SubtitleUpdate(SubtitleEntry entry, List<SubtitleEntry> entries, List<SubtitleRevision> revisions) {}
+    private boolean shouldStartNewDraft(String text) {
+        return activeEntry != null
+                && !activeEntry.finalResult()
+                && !text.isBlank()
+                && text.strip().length() > MAX_DRAFT_SOURCE_CHARACTERS;
+    }
+
+    private String splitDraftText(String text) {
+        String previousText = activeEntry.sourceText();
+        if (text.startsWith(previousText)) {
+            String suffix = text.substring(previousText.length()).strip();
+            if (!suffix.isBlank()) {
+                return suffix;
+            }
+        }
+        if (text.length() <= MAX_DRAFT_SOURCE_CHARACTERS) {
+            return text;
+        }
+        return text.substring(text.length() - MAX_DRAFT_SOURCE_CHARACTERS).strip();
+    }
+
+    public record SubtitleUpdate(SubtitleEntry entry, List<SubtitleEntry> entries, List<SubtitleRevision> revisions) {
+    }
 }
