@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -67,6 +68,7 @@ public final class MainWindow extends JFrame {
     private final JButton startButton = new JButton("开始");
     private final JButton stopButton = new JButton("结束");
     private final JButton exportButton = new JButton("保存字幕");
+    private final JButton termsButton = new JButton("查看术语");
     private final JButton lockFloatingButton = new JButton("锁定悬浮窗");
     private final JButton sourceColorButton = new JButton("原文颜色");
     private final JButton translationColorButton = new JButton("译文颜色");
@@ -111,6 +113,7 @@ public final class MainWindow extends JFrame {
         panel.add(startButton);
         panel.add(stopButton);
         panel.add(exportButton);
+        panel.add(termsButton);
         panel.add(lockFloatingButton);
         panel.add(sourceColorButton);
         panel.add(translationColorButton);
@@ -155,6 +158,7 @@ public final class MainWindow extends JFrame {
         startButton.addActionListener(event -> startSession());
         stopButton.addActionListener(event -> stopSession());
         exportButton.addActionListener(event -> exportSubtitles());
+        termsButton.addActionListener(event -> showTermsDialog());
         lockFloatingButton.addActionListener(event -> toggleFloatingWindowLock());
         sourceColorButton.addActionListener(event -> chooseFloatingTextColor(true));
         translationColorButton.addActionListener(event -> chooseFloatingTextColor(false));
@@ -260,6 +264,57 @@ public final class MainWindow extends JFrame {
     private static String defaultExportFileName() {
         String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
         return "subtitles-" + ts + ".txt";
+    }
+
+    private void showTermsDialog() {
+        Map<String, String> terms = subtitleStore.extractTerms();
+        if (terms.isEmpty()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "未检测到术语。术语提取需要满足以下条件：\n" +
+                    "1. 已完成至少一次翻译\n" +
+                    "2. 术语在原文中出现至少 2 次\n" +
+                    "3. 术语长度在 3-40 个字符之间",
+                    "术语结果",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+            return;
+        }
+
+        StringBuilder content = new StringBuilder();
+        content.append("<html><body style='font-family:微软雅黑;font-size:13px;'>");
+        content.append("<h3>术语列表（共 ").append(terms.size()).append(" 个）</h3>");
+        content.append("<table border='1' cellpadding='6' cellspacing='0'>");
+        content.append("<tr style='background-color:#f0f0f0;'>");
+        content.append("<th><b>英文术语</b></th>");
+        content.append("<th><b>中文释义</b></th>");
+        content.append("</tr>");
+
+        for (Map.Entry<String, String> entry : terms.entrySet()) {
+            content.append("<tr>");
+            content.append("<td>").append(escapeHtml(entry.getKey())).append("</td>");
+            content.append("<td>").append(escapeHtml(entry.getValue())).append("</td>");
+            content.append("</tr>");
+        }
+
+        content.append("</table>");
+        content.append("<br/><p style='color:#666;'>提示：术语基于出现频率自动提取，可在导出字幕时手动追加。</p>");
+        content.append("</body></html>");
+
+        JOptionPane.showMessageDialog(
+                this,
+                content.toString(),
+                "术语结果",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+    }
+
+    private static String escapeHtml(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;");
     }
 
     private void toggleFloatingWindowLock() {
