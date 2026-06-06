@@ -62,6 +62,7 @@ public final class MainWindow extends JFrame {
     private final SubtitleTableModel subtitleTableModel = new SubtitleTableModel();
     private final CorrectionTableModel correctionTableModel = new CorrectionTableModel();
     private final JTextArea liveSubtitle = new JTextArea();
+    private final FloatingSubtitleWindow floatingSubtitleWindow = new FloatingSubtitleWindow();
     private volatile AsrClient asrClient;
     private String previewSourceText = "等待识别结果...";
     private String previewTranslatedText = "";
@@ -78,6 +79,7 @@ public final class MainWindow extends JFrame {
         stopButton.setEnabled(false);
         bindActions();
         pack();
+        floatingSubtitleWindow.setVisible(true);
     }
 
     private JPanel buildToolbar() {
@@ -133,6 +135,7 @@ public final class MainWindow extends JFrame {
                 stopSession();
                 audioCaptureService.close();
                 translationScheduler.close();
+                floatingSubtitleWindow.dispose();
                 controlExecutor.shutdownNow();
             }
         });
@@ -159,6 +162,7 @@ public final class MainWindow extends JFrame {
         previewSourceText = "等待识别结果...";
         previewTranslatedText = "";
         liveSubtitle.setText(previewText(previewSourceText, previewTranslatedText));
+        floatingSubtitleWindow.reset();
         controlExecutor.submit(() -> {
             try {
                 AsrClient client = new QwenRealtimeAsrClient(config);
@@ -252,6 +256,7 @@ public final class MainWindow extends JFrame {
         previewSourceText = entry.sourceText();
         previewTranslatedText = translated;
         liveSubtitle.setText(previewText(previewSourceText, previewTranslatedText));
+        floatingSubtitleWindow.updateSubtitle(previewSourceText, previewTranslatedText);
     }
 
     static String previewText(String source, String translation) {
