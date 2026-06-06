@@ -2,6 +2,7 @@ package com.fanfan.interpreter.ui;
 
 import com.fanfan.interpreter.asr.AsrClient;
 import com.fanfan.interpreter.asr.QwenRealtimeAsrClient;
+import com.fanfan.interpreter.asr.StableTranscriptScheduler;
 import com.fanfan.interpreter.audio.AudioCaptureService;
 import com.fanfan.interpreter.audio.AudioSource;
 import com.fanfan.interpreter.config.AppConfig;
@@ -47,6 +48,7 @@ public final class MainWindow extends JFrame {
     private final SubtitleStore subtitleStore = new SubtitleStore();
     private final AudioCaptureService audioCaptureService = new AudioCaptureService();
     private final TranslationScheduler translationScheduler = new TranslationScheduler(new QwenMtTranslator(config));
+    private final StableTranscriptScheduler stableTranscriptScheduler = new StableTranscriptScheduler(config.asrStabilityDelayMs());
     private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "session-control");
         thread.setDaemon(true);
@@ -135,6 +137,7 @@ public final class MainWindow extends JFrame {
                 stopSession();
                 audioCaptureService.close();
                 translationScheduler.close();
+                stableTranscriptScheduler.close();
                 floatingSubtitleWindow.dispose();
                 controlExecutor.shutdownNow();
             }
@@ -157,6 +160,7 @@ public final class MainWindow extends JFrame {
         refreshButton.setEnabled(false);
         statusLabel.setText("正在连接 Qwen ASR...");
         subtitleStore.clear();
+        stableTranscriptScheduler.clear();
         subtitleTableModel.setEntries(List.of());
         correctionTableModel.setRevisions(List.of());
         previewSourceText = "等待识别结果...";
@@ -227,6 +231,10 @@ public final class MainWindow extends JFrame {
     }
 
     private void onTranscript(String text, boolean finalResult) {
+        stableTranscriptScheduler.accept(text, finalResult, this::onStableTranscript);
+    }
+
+    private void onStableTranscript(String text, boolean finalResult) {
         SwingUtilities.invokeLater(() -> {
             SubtitleUpdate update = subtitleStore.applyTranscript(text, finalResult);
             subtitleTableModel.setEntries(update.entries());
