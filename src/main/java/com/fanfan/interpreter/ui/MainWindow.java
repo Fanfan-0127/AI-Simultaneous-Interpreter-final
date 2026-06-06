@@ -280,7 +280,20 @@ public final class MainWindow extends JFrame {
         private List<SubtitleEntry> entries = List.of();
 
         void setEntries(List<SubtitleEntry> entries) {
+            int oldSize = this.entries.size();
             this.entries = List.copyOf(entries);
+            if (this.entries.isEmpty()) {
+                fireTableDataChanged();
+                return;
+            }
+            if (oldSize == this.entries.size()) {
+                fireTableRowsUpdated(this.entries.size() - 1, this.entries.size() - 1);
+                return;
+            }
+            if (oldSize + 1 == this.entries.size()) {
+                fireTableRowsInserted(this.entries.size() - 1, this.entries.size() - 1);
+                return;
+            }
             fireTableDataChanged();
         }
 
@@ -309,8 +322,13 @@ public final class MainWindow extends JFrame {
             List<SubtitleRevision> filtered = revisions.stream()
                     .filter(CorrectionTableModel::isCorrection).toList();
             int fromIndex = Math.max(0, filtered.size() - MAX_ROWS);
+            int oldSize = this.revisions.size();
             this.revisions = filtered.subList(fromIndex, filtered.size()).reversed();
-            fireTableDataChanged();
+            if (this.revisions.isEmpty() || this.revisions.size() != oldSize) {
+                fireTableDataChanged();
+                return;
+            }
+            fireTableRowsUpdated(0, this.revisions.size() - 1);
         }
 
         @Override public int getRowCount() { return revisions.size(); }
@@ -330,8 +348,14 @@ public final class MainWindow extends JFrame {
         }
 
         private static boolean isCorrection(SubtitleRevision r) { return r.type() == SubtitleRevisionType.MT_CORRECTION; }
-        private static String beforeText(SubtitleRevision r) { return r.oldTranslatedText(); }
-        private static String afterText(SubtitleRevision r) { return r.newTranslatedText(); }
+        private static String beforeText(SubtitleRevision r) {
+            if (r.type() == SubtitleRevisionType.ASR_UPDATE) return r.oldSourceText();
+            return r.oldTranslatedText();
+        }
+        private static String afterText(SubtitleRevision r) {
+            if (r.type() == SubtitleRevisionType.ASR_UPDATE) return r.newSourceText();
+            return r.newTranslatedText();
+        }
 
         private static String labelFor(SubtitleRevisionType type) {
             return switch (type) {
