@@ -214,9 +214,17 @@ public final class MainWindow extends JFrame {
                 SwingUtilities.invokeLater(() -> {
                     startButton.setEnabled(true);
                     refreshButton.setEnabled(true);
+                    stopButton.setEnabled(false);
                     statusLabel.setText("启动失败");
                     audioStatusLabel.setText("音频未启动");
-                    JOptionPane.showMessageDialog(this, exception.getMessage(), "启动失败", JOptionPane.ERROR_MESSAGE);
+
+                    String errorMessage = buildStartupErrorMessage(exception, selectedSource);
+                    JOptionPane.showMessageDialog(
+                            this,
+                            errorMessage,
+                            "启动失败",
+                            JOptionPane.ERROR_MESSAGE
+                    );
                 });
             }
         });
@@ -338,6 +346,62 @@ public final class MainWindow extends JFrame {
             floatingSubtitleWindow.setTranslationTextColor(selectedColor);
             statusLabel.setText("已更新译文颜色");
         }
+    }
+
+    private String buildStartupErrorMessage(Exception exception, AudioSource source) {
+        String message = exception.getMessage();
+
+        if (message.contains("0x80070057")) {
+            return "WASAPI 设备打开失败（错误码：0x80070057）\n\n" +
+                   "可能原因：\n" +
+                   "1. 所选输出设备当前被其他程序独占\n" +
+                   "2. 设备不支持 Loopback 模式\n" +
+                   "3. 系统音频服务异常\n\n" +
+                   "建议操作：\n" +
+                   "• 关闭其他可能使用音频的程序（如音乐播放器、会议软件）\n" +
+                   "• 尝试选择另一个音频源\n" +
+                   "• 重启电脑后重试";
+        }
+
+        if (message.contains("timed out") || message.contains("timeout")) {
+            return "WASAPI 启动超时\n\n" +
+                   "可能原因：\n" +
+                   "1. 输出设备无音频信号\n" +
+                   "2. 系统音量被静音或调至最低\n" +
+                   "3. 设备驱动响应缓慢\n\n" +
+                   "建议操作：\n" +
+                   "• 检查系统音量是否正常\n" +
+                   "• 播放一段测试音频确认设备工作正常\n" +
+                   "• 尝试选择 Java Sound 音频源作为备选方案";
+        }
+
+        if (message.contains("CoInitializeEx") || message.contains("COM")) {
+            return "Windows COM 初始化失败\n\n" +
+                   "可能原因：\n" +
+                   "1. 当前线程已初始化 COM 库\n" +
+                   "2. 系统资源不足\n\n" +
+                   "建议操作：\n" +
+                   "• 重启应用程序\n" +
+                   "• 重启电脑后重试";
+        }
+
+        if (exception instanceof javax.sound.sampled.LineUnavailableException) {
+            return "音频设备不可用\n\n" +
+                   "设备：" + source.label() + "\n" +
+                   "类型：" + source.backend() + "\n\n" +
+                   "可能原因：\n" +
+                   "1. 设备被其他程序占用\n" +
+                   "2. 设备不支持 16kHz PCM 格式\n\n" +
+                   "建议操作：\n" +
+                   "• 选择其他音频源\n" +
+                   "• 优先选择标注为 'WASAPI' 的设备";
+        }
+
+        return "启动失败：" + message + "\n\n" +
+               "建议操作：\n" +
+               "• 检查网络连接是否正常\n" +
+               "• 确认 DASHSCOPE_API_KEY 已正确配置\n" +
+               "• 查看控制台日志获取详细错误信息";
     }
 
     private void onTranscript(String text, boolean finalResult) {
