@@ -2,6 +2,7 @@ package com.fanfan.interpreter.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class SubtitleStore {
@@ -64,6 +65,10 @@ public final class SubtitleStore {
         entries.clear();
         revisions.clear();
         activeEntry = null;
+    }
+
+    public Map<String, String> extractTerms() {
+        return TermExtractor.extractTerms(new ArrayList<>(entries));
     }
 
     private void addRevisionIfChanged(SubtitleRevision revision) {
