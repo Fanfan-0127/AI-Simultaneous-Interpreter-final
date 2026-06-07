@@ -2,15 +2,12 @@ package com.fanfan.interpreter.translation;
 
 import com.alibaba.dashscope.aigc.generation.*;
 import com.alibaba.dashscope.common.Message;
-import com.alibaba.dashscope.common.ResultCallback;
 import com.alibaba.dashscope.common.Role;
-import com.alibaba.dashscope.common.Status;
 import com.fanfan.interpreter.config.AppConfig;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 public final class QwenMtTranslator implements Translator {
     private static final int CACHE_MAX_SIZE = 200;
@@ -40,31 +37,6 @@ public final class QwenMtTranslator implements Translator {
         return result;
     }
 
-    public String translateEnglishToChineseStreaming(
-            String englishText,
-            Consumer<String> onToken,
-            Consumer<String> onComplete,
-            Consumer<Exception> onError
-    ) throws Exception {
-        String key = cacheKey(englishText);
-        String cached = translationCache.get(key);
-        if (cached != null) {
-            onToken.accept(cached);
-            onComplete.accept(cached);
-            return cached;
-        }
-        callQwenMtStreaming(englishText, token -> {
-            translationCache.put(key, token);
-            onToken.accept(token);
-        }, finalText -> {
-            if (!finalText.isEmpty()) {
-                translationCache.put(key, finalText);
-            }
-            onComplete.accept(finalText);
-        }, onError);
-        return null;
-    }
-
     @Override
     public String refineEnglishToChinese(String englishText, String draftChineseText) throws Exception {
         return callQwenMt(englishText);
@@ -79,41 +51,6 @@ public final class QwenMtTranslator implements Translator {
         if (!config.hasApiKey()) throw new IllegalStateException("DASHSCOPE_API_KEY is not set.");
         GenerationParam param = buildParam(englishText);
         return extractText(generation.call(param));
-    }
-
-    private void callQwenMtStreaming(
-            String englishText,
-            Consumer<String> onToken,
-            Consumer<String> onComplete,
-            Consumer<Exception> onError
-    ) throws Exception {
-        if (englishText == null || englishText.isBlank()) {
-            onToken.accept("");
-            onComplete.accept("");
-            return;
-        }
-        if (!config.hasApiKey()) throw new IllegalStateException("DASHSCOPE_API_KEY is not set.");
-        GenerationParam param = buildParam(englishText);
-        param.setIncrementalOutput(true);
-        generation.streamCall(param, new ResultCallback<>() {
-            @Override public void onOpen(Status status) {}
-            @Override
-            public void onEvent(GenerationResult result) {
-                String text = extractText(result);
-                if (!text.isEmpty()) {
-                    onToken.accept(text);
-                }
-            }
-            @Override
-            public void onComplete() {
-                String fullText = translationCache.get(cacheKey(englishText));
-                onComplete.accept(fullText != null ? fullText : "");
-            }
-            @Override
-            public void onError(Exception exception) {
-                onError.accept(exception);
-            }
-        });
     }
 
     private GenerationParam buildParam(String englishText) {
