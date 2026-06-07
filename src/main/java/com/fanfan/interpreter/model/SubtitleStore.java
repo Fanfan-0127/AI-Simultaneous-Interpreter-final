@@ -67,7 +67,7 @@ public final class SubtitleStore {
         activeEntry = null;
     }
 
-    public Map<String, String> extractTerms() {
+    public Map<String, Integer> extractTerms() {
         return TermExtractor.extractTerms(new ArrayList<>(entries));
     }
 

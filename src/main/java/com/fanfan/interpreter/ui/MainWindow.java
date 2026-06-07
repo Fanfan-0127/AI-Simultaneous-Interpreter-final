@@ -352,7 +352,7 @@ public final class MainWindow extends JFrame {
     }
 
     private void showTermsDialog() {
-        Map<String, String> terms = subtitleStore.extractTerms();
+        Map<String, Integer> terms = subtitleStore.extractTerms();
         TranscriptCorrector.addTerms(terms.keySet());
         if (terms.isEmpty()) {
             JOptionPane.showMessageDialog(
@@ -373,13 +373,13 @@ public final class MainWindow extends JFrame {
         content.append("<table border='1' cellpadding='6' cellspacing='0'>");
         content.append("<tr style='background-color:#f0f0f0;'>");
         content.append("<th><b>英文术语</b></th>");
-        content.append("<th><b>中文释义</b></th>");
+        content.append("<th><b>出现次数</b></th>");
         content.append("</tr>");
 
-        for (Map.Entry<String, String> entry : terms.entrySet()) {
+        for (Map.Entry<String, Integer> entry : terms.entrySet()) {
             content.append("<tr>");
             content.append("<td>").append(escapeHtml(entry.getKey())).append("</td>");
-            content.append("<td>").append(escapeHtml(entry.getValue())).append("</td>");
+            content.append("<td>").append(entry.getValue()).append("</td>");
             content.append("</tr>");
         }
 

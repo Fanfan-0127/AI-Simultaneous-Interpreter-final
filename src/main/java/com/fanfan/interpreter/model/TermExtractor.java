@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public final class TermExtractor {
     private static final int MIN_TERM_LENGTH = 3;
@@ -30,43 +29,35 @@ public final class TermExtractor {
     private TermExtractor() {
     }
 
-    public static Map<String, String> extractTerms(List<SubtitleEntry> entries) {
+    public static Map<String, Integer> extractTerms(List<SubtitleEntry> entries) {
         if (entries == null || entries.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        Map<String, TermCandidate> candidates = new HashMap<>();
+        Map<String, Integer> frequencies = new HashMap<>();
 
         for (SubtitleEntry entry : entries) {
             String sourceText = entry.sourceText();
-            String translatedText = entry.translatedText();
-
-            if (sourceText.isBlank() || translatedText.isBlank()) {
+            if (sourceText.isBlank()) {
                 continue;
             }
 
-            extractCandidates(sourceText, translatedText, candidates);
-        }
-
-        return filterAndFormat(candidates);
-    }
-
-    private static void extractCandidates(
-            String sourceText,
-            String translatedText,
-            Map<String, TermCandidate> candidates
-    ) {
-        var matcher = TECHNICAL_PATTERN.matcher(sourceText);
-        while (matcher.find()) {
-            String term = matcher.group(1).strip();
-
-            if (!isValidTerm(term)) {
-                continue;
+            var matcher = TECHNICAL_PATTERN.matcher(sourceText);
+            while (matcher.find()) {
+                String term = matcher.group(1).strip();
+                if (isValidTerm(term)) {
+                    frequencies.merge(term, 1, Integer::sum);
+                }
             }
-
-            candidates.computeIfAbsent(term, k -> new TermCandidate(term))
-                    .addTranslation(translatedText);
         }
+
+        return frequencies.entrySet().stream()
+                .filter(e -> e.getValue() >= MIN_FREQUENCY)
+                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                .limit(50)
+                .collect(LinkedHashMap::new,
+                        (map, e) -> map.put(e.getKey(), e.getValue()),
+                        LinkedHashMap::putAll);
     }
 
     private static boolean isValidTerm(String term) {
@@ -83,58 +74,5 @@ public final class TermExtractor {
         }
 
         return true;
-    }
-
-    private static Map<String, String> filterAndFormat(Map<String, TermCandidate> candidates) {
-        return candidates.values().stream()
-                .filter(candidate -> candidate.frequency >= MIN_FREQUENCY)
-                .sorted((a, b) -> Integer.compare(b.frequency, a.frequency))
-                .limit(50)
-                .collect(Collectors.toMap(
-                        TermCandidate::getTerm,
-                        TermCandidate::getMostCommonTranslation,
-                        (existing, replacement) -> existing,
-                        LinkedHashMap::new
-                ));
-    }
-
-    private static final class TermCandidate {
-        private final String term;
-        private int frequency = 0;
-        private final Map<String, Integer> translationCounts = new HashMap<>();
-
-        TermCandidate(String term) {
-            this.term = term;
-        }
-
-        void addTranslation(String translation) {
-            frequency++;
-            String normalized = normalizeTranslation(translation);
-            if (!normalized.isBlank()) {
-                translationCounts.merge(normalized, 1, Integer::sum);
-            }
-        }
-
-        String getTerm() {
-            return term;
-        }
-
-        String getMostCommonTranslation() {
-            return translationCounts.entrySet().stream()
-                    .max(Map.Entry.comparingByValue())
-                    .map(Map.Entry::getKey)
-                    .orElse("");
-        }
-
-        private String normalizeTranslation(String text) {
-            String[] parts = text.split("[，,。；;]");
-            for (String part : parts) {
-                String trimmed = part.strip();
-                if (trimmed.length() >= 2 && trimmed.length() <= 30) {
-                    return trimmed;
-                }
-            }
-            return text.strip();
-        }
     }
 }
