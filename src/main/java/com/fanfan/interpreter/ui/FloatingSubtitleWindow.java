@@ -78,6 +78,10 @@ public final class FloatingSubtitleWindow extends JWindow {
         }
         displayedSourceText = nextSourceText;
         displayedTranslationText = latestTranslation;
+        // fade to invisible before text update to avoid flash of old background at full opacity
+        if (animTimer != null) animTimer.stop();
+        this.sourceText.setAnimAlpha(0f);
+        this.translationText.setAnimAlpha(0f);
         this.sourceText.setText(displayedSourceText);
         this.translationText.setText(displayedTranslationText);
         resizeToContent();
