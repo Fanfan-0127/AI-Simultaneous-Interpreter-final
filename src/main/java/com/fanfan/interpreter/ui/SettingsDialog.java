@@ -59,6 +59,7 @@ public final class SettingsDialog extends JDialog {
     private final JComboBox<String> sourceFontCombo;
     private final JComboBox<String> translationFontCombo;
     private final JSpinner bgOpacitySpinner;
+    private final JCheckBox showSourceCheckbox;
 
     private SettingsDialog(Frame owner, UserSettings settings, Runnable onSaved) {
         super(owner, "偏好设置", true);
@@ -96,6 +97,7 @@ public final class SettingsDialog extends JDialog {
         translationFontCombo.setSelectedItem(settings.floatingTranslationFont());
 
         bgOpacitySpinner = new JSpinner(new SpinnerNumberModel(settings.floatingBgOpacity(), 0, 255, 5));
+        showSourceCheckbox = new JCheckBox("显示原文", settings.floatingShowSource());
 
         buildUi();
     }
@@ -265,6 +267,9 @@ public final class SettingsDialog extends JDialog {
         addLabel(panel, c, "背景不透明度");
         addField(panel, c, bgOpacitySpinner);
 
+        addLabel(panel, c, "悬浮窗选项");
+        addField(panel, c, showSourceCheckbox);
+
         c.gridy++;
         c.weighty = 1;
         panel.add(new JLabel(), c);
@@ -296,6 +301,7 @@ public final class SettingsDialog extends JDialog {
         settings.setFloatingSourceFont((String) sourceFontCombo.getSelectedItem());
         settings.setFloatingTranslationFont((String) translationFontCombo.getSelectedItem());
         settings.setFloatingBgOpacity(((Number) bgOpacitySpinner.getValue()).intValue());
+        settings.setFloatingShowSource(showSourceCheckbox.isSelected());
         settings.setTheme(themeCombo.getSelectedIndex() == 1 ? "light" : "dark");
 
         try {
@@ -324,6 +330,7 @@ public final class SettingsDialog extends JDialog {
         sourceFontCombo.setSelectedItem("SansSerif");
         translationFontCombo.setSelectedItem("SansSerif");
         bgOpacitySpinner.setValue(180);
+        showSourceCheckbox.setSelected(true);
     }
 
     private static void addLabel(JPanel panel, GridBagConstraints c, String text) {

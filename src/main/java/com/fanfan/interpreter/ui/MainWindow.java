@@ -84,6 +84,7 @@ public final class MainWindow extends JFrame {
     private final JLabel statusDot = new JLabel("●");
     private final SubtitleTableModel subtitleTableModel = new SubtitleTableModel();
     private final CorrectionTableModel correctionTableModel = new CorrectionTableModel();
+    private JScrollPane correctionScrollPane;
     private final JTextArea liveSubtitle = new JTextArea();
     private final FloatingSubtitleWindow floatingSubtitleWindow = new FloatingSubtitleWindow();
     private Color floatingSourceColor = SettingsDialog.parseColor(userSettings.floatingSourceColor(), Color.WHITE);
@@ -121,6 +122,7 @@ public final class MainWindow extends JFrame {
                 userSettings.floatingSourceFontSize(), userSettings.floatingTranslationFontSize());
         floatingSubtitleWindow.setLineGap(userSettings.floatingLineSpacing());
         floatingSubtitleWindow.setBgOpacity(userSettings.floatingBgOpacity());
+        floatingSubtitleWindow.setSourceVisible(userSettings.floatingShowSource());
         floatingSubtitleWindow.setVisible(true);
         restoreWindowPositions();
     }
@@ -201,13 +203,33 @@ public final class MainWindow extends JFrame {
                 BorderFactory.createEmptyBorder(14, 14, 14, 14)));
         liveSubtitle.setText("等待识别结果...");
 
-        JSplitPane recordsPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-                new JScrollPane(table), new JScrollPane(correctionTable));
-        recordsPane.setResizeWeight(0.68);
-        recordsPane.setBorder(null);
+        JButton toggleButton = new JButton("展开修正列表 ▼");
+        toggleButton.setFont(toggleButton.getFont().deriveFont(11f));
+        toggleButton.addActionListener(event -> {
+            boolean expanded = !correctionScrollPane.isVisible();
+            correctionScrollPane.setVisible(expanded);
+            toggleButton.setText(expanded ? "收起修正列表 ▲" : "展开修正列表 ▼");
+            toggleButton.getParent().revalidate();
+        });
+
+        JPanel toggleBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 3));
+        toggleBar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER));
+        toggleBar.add(toggleButton);
+
+        correctionScrollPane = new JScrollPane(correctionTable);
+        correctionScrollPane.setVisible(false);
+
+        JPanel correctionPanel = new JPanel(new BorderLayout());
+        correctionPanel.add(toggleBar, BorderLayout.NORTH);
+        correctionPanel.add(correctionScrollPane, BorderLayout.CENTER);
+
+        JScrollPane tableScrollPane = new JScrollPane(table);
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(tableScrollPane, BorderLayout.CENTER);
+        topPanel.add(correctionPanel, BorderLayout.SOUTH);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-                recordsPane, new JScrollPane(liveSubtitle));
+                topPanel, new JScrollPane(liveSubtitle));
         splitPane.setResizeWeight(0.78);
         splitPane.setBorder(null);
         return splitPane;
@@ -298,6 +320,7 @@ public final class MainWindow extends JFrame {
                     userSettings.floatingSourceFontSize(), userSettings.floatingTranslationFontSize());
             floatingSubtitleWindow.setLineGap(userSettings.floatingLineSpacing());
             floatingSubtitleWindow.setBgOpacity(userSettings.floatingBgOpacity());
+            floatingSubtitleWindow.setSourceVisible(userSettings.floatingShowSource());
             applyTheme(userSettings.theme());
             updateLiveSubtitle(subtitleStore.snapshot());
         });

@@ -20,11 +20,9 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
-import java.awt.Toolkit;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
-import java.util.Map;
 
 public final class FloatingSubtitleWindow extends JWindow {
     private static final int WINDOW_WIDTH = 960;
@@ -38,12 +36,11 @@ public final class FloatingSubtitleWindow extends JWindow {
     private static final int TRANSLATION_MAX_LINES = 4;
     private static final int CORNER_RADIUS = 18;
     private static final float ANIM_DURATION_MS = 200f;
-    private static final int TEXT_MARGIN_H = 10;
-    private static final int TEXT_MARGIN_V = 5;
 
     private final ShadowTextArea sourceText = new ShadowTextArea("等待识别结果...");
     private final ShadowTextArea translationText = new ShadowTextArea("");
     private final JPanel contentPanel;
+    private javax.swing.Box.Filler lineGapStrut;
     private boolean locked;
     private Point dragStartOnScreen;
     private Point dragStartWindowLocation;
@@ -52,6 +49,7 @@ public final class FloatingSubtitleWindow extends JWindow {
     private int contentHeight = -1;
     private int lineGap = 4;
     private int bgAlpha = 180;
+    private boolean sourceVisible = true;
 
     // ---- animation state ----
     private float animProgress = 1f;
@@ -146,6 +144,23 @@ public final class FloatingSubtitleWindow extends JWindow {
         repaint();
     }
 
+    public void setSourceVisible(boolean visible) {
+        if (this.sourceVisible == visible) return;
+        this.sourceVisible = visible;
+        sourceText.setVisible(visible);
+        if (lineGapStrut != null) {
+            lineGapStrut.setVisible(visible);
+            Dimension gapSize = visible ? new Dimension(0, lineGap) : new Dimension(0, 0);
+            lineGapStrut.setMinimumSize(gapSize);
+            lineGapStrut.setPreferredSize(gapSize);
+            lineGapStrut.setMaximumSize(gapSize);
+        }
+        contentHeight = -1;
+        resizeToContent();
+        moveToBottomCenter();
+        repaint();
+    }
+
     public Point getSavedPosition() {
         return getLocation();
     }
@@ -176,7 +191,8 @@ public final class FloatingSubtitleWindow extends JWindow {
         bindDragHandler(sourceText, dragHandler);
         bindDragHandler(translationText, dragHandler);
         panel.add(sourceText);
-        panel.add(Box.createVerticalStrut(lineGap));
+        lineGapStrut = (javax.swing.Box.Filler) Box.createVerticalStrut(lineGap);
+        panel.add(lineGapStrut);
         panel.add(translationText);
         return panel;
     }
@@ -195,14 +211,14 @@ public final class FloatingSubtitleWindow extends JWindow {
 
     private void resizeToContent() {
         int textWidth = WINDOW_WIDTH - HORIZONTAL_PADDING;
-        int wrapWidth = textWidth - TEXT_MARGIN_H * 2;
-        int sourceHeight = wrappedTextHeight(sourceText, displayedSourceText, wrapWidth, SOURCE_MAX_LINES);
-        int translationHeight = wrappedTextHeight(translationText, displayedTranslationText, wrapWidth, TRANSLATION_MAX_LINES);
-        int sourceCompH = sourceHeight + TEXT_MARGIN_V * 2;
-        int translationCompH = translationHeight + TEXT_MARGIN_V * 2;
-        applyStableTextSize(sourceText, textWidth, sourceCompH);
-        applyStableTextSize(translationText, textWidth, translationCompH);
-        int windowHeight = Math.max(MIN_WINDOW_HEIGHT, sourceCompH + translationCompH + VERTICAL_PADDING + lineGap);
+        int sourceHeight = sourceVisible
+                ? wrappedTextHeight(sourceText, displayedSourceText, textWidth, SOURCE_MAX_LINES)
+                : 0;
+        int translationHeight = wrappedTextHeight(translationText, displayedTranslationText, textWidth, TRANSLATION_MAX_LINES);
+        applyStableTextSize(sourceText, textWidth, Math.max(0, sourceHeight));
+        applyStableTextSize(translationText, textWidth, translationHeight);
+        int gapHeight = sourceVisible ? lineGap : 0;
+        int windowHeight = Math.max(MIN_WINDOW_HEIGHT, sourceHeight + translationHeight + VERTICAL_PADDING + gapHeight);
         if (windowHeight == contentHeight) {
             repaint();
             return;
@@ -284,19 +300,15 @@ public final class FloatingSubtitleWindow extends JWindow {
 
     // ---- custom components ----
 
-    /** JTextArea that renders a rounded dark backdrop, drop shadow, and text. */
+    /** JTextArea that renders a rounded dark backdrop behind the text. */
     private static final class ShadowTextArea extends JTextArea {
-        private static final Color SHADOW_COLOR = new Color(0, 0, 0, 64);
         private static final int BG_ARC = 10;
 
-        private final Map<?, ?> desktopHints;
         private float animAlpha = 1f;
         private int bgAlpha = 180;
 
         ShadowTextArea(String initialText) {
             super(initialText);
-            desktopHints = (Map<?, ?>) Toolkit.getDefaultToolkit()
-                    .getDesktopProperty("awt.font.desktophints");
         }
 
         void setAnimAlpha(float alpha) { this.animAlpha = alpha; }
@@ -304,28 +316,30 @@ public final class FloatingSubtitleWindow extends JWindow {
 
         @Override
         protected void paintComponent(Graphics g) {
+            if (animAlpha <= 0.005f) return; // fully transparent — skip all rendering
             Graphics2D g2d = (Graphics2D) g.create();
             try {
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // animation alpha
                 if (animAlpha < 1f) {
                     g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, animAlpha));
                 }
-                // rounded dark backdrop
                 g2d.setColor(new Color(0, 0, 0, bgAlpha));
                 g2d.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), BG_ARC, BG_ARC));
-                // drop shadow
-                if (desktopHints != null) {
-                    g2d.addRenderingHints(desktopHints);
-                }
-                g2d.setColor(SHADOW_COLOR);
-                g2d.translate(1, 1);
-                super.paintComponent(g2d);
             } finally {
                 g2d.dispose();
             }
-            // foreground text
-            super.paintComponent(g);
+            // text rendering with same alpha composite
+            if (animAlpha < 1f) {
+                Graphics2D g2dText = (Graphics2D) g.create();
+                try {
+                    g2dText.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, animAlpha));
+                    super.paintComponent(g2dText);
+                } finally {
+                    g2dText.dispose();
+                }
+            } else {
+                super.paintComponent(g);
+            }
         }
     }
 
@@ -340,7 +354,6 @@ public final class FloatingSubtitleWindow extends JWindow {
         textArea.setLineWrap(true);
         textArea.setWrapStyleWord(true);
         textArea.setAlignmentX(CENTER_ALIGNMENT);
-        textArea.setMargin(new java.awt.Insets(TEXT_MARGIN_V, TEXT_MARGIN_H, TEXT_MARGIN_V, TEXT_MARGIN_H));
     }
 
     // ---- drag handler ----
