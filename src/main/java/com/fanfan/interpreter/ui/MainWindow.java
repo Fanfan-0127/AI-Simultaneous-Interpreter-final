@@ -82,6 +82,7 @@ public final class MainWindow extends JFrame {
     private Color floatingSourceColor = Color.WHITE;
     private Color floatingTranslationColor = new Color(255, 230, 150);
     private volatile AsrClient asrClient;
+    private volatile QwenRealtimeAsrClient preWarmedClient;
     private String previewSourceText = "等待识别结果...";
     private String previewTranslatedText = "";
 
@@ -94,6 +95,8 @@ public final class MainWindow extends JFrame {
 
         ConfigValidator.ValidationResult validation = ConfigValidator.validate(config);
         ConfigValidator.showValidationResult(validation);
+
+        preWarmAsrConnection();
 
         add(buildToolbar(), BorderLayout.NORTH);
         add(buildContent(), BorderLayout.CENTER);
@@ -165,11 +168,28 @@ public final class MainWindow extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosed(WindowEvent event) {
                 stopSession();
+                QwenRealtimeAsrClient pw = preWarmedClient;
+                preWarmedClient = null;
+                if (pw != null) pw.close();
                 audioCaptureService.close();
                 translationScheduler.close();
                 stableTranscriptScheduler.close();
                 floatingSubtitleWindow.dispose();
                 controlExecutor.shutdownNow();
+            }
+        });
+    }
+
+    private void preWarmAsrConnection() {
+        if (!config.hasApiKey()) return;
+        controlExecutor.submit(() -> {
+            try {
+                QwenRealtimeAsrClient client = new QwenRealtimeAsrClient(config);
+                client.preConnect();
+                preWarmedClient = client;
+                SwingUtilities.invokeLater(() -> statusLabel.setText("ASR 连接就绪"));
+            } catch (Exception ignored) {
+                // Pre-warm failed silently; startSession will create a new connection
             }
         });
     }
@@ -201,7 +221,11 @@ public final class MainWindow extends JFrame {
         floatingSubtitleWindow.reset();
         controlExecutor.submit(() -> {
             try {
-                AsrClient client = new QwenRealtimeAsrClient(config);
+                QwenRealtimeAsrClient client = preWarmedClient;
+                preWarmedClient = null;
+                if (client == null) {
+                    client = new QwenRealtimeAsrClient(config);
+                }
                 client.start(this::onTranscript);
                 asrClient = client;
                 audioCaptureService.start(selectedSource, client::appendPcm, (chunk, level) -> onAudioLevel(level));
@@ -246,6 +270,7 @@ public final class MainWindow extends JFrame {
             catch (Exception ignored) {}
             finally {
                 client.close();
+                preWarmAsrConnection();
                 SwingUtilities.invokeLater(() -> statusLabel.setText("已结束"));
             }
         });
