@@ -1,6 +1,7 @@
 package com.fanfan.interpreter.ui;
 
 import com.fanfan.interpreter.config.Language;
+import com.fanfan.interpreter.config.Restarter;
 import com.fanfan.interpreter.config.UserSettings;
 
 import javax.swing.BorderFactory;
@@ -124,10 +125,10 @@ public final class SettingsDialog extends JDialog {
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 8));
         JButton resetButton = new JButton("恢复默认");
-        JButton saveButton = new JButton("保存");
+        JButton saveButton = new JButton("保存并重启");
         JButton cancelButton = new JButton("取消");
         resetButton.addActionListener(event -> resetDisplayDefaults());
-        saveButton.addActionListener(event -> saveAndClose());
+        saveButton.addActionListener(event -> saveAndRestart());
         cancelButton.addActionListener(event -> dispose());
         buttonPanel.add(resetButton);
         buttonPanel.add(saveButton);
@@ -294,7 +295,7 @@ public final class SettingsDialog extends JDialog {
         label.setFont(new java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, 11));
     }
 
-    private void saveAndClose() {
+    private void saveAndRestart() {
         settings.setApiKey(new String(apiKeyField.getPassword()));
         settings.setRealtimeUrl(realtimeUrlField.getText());
         settings.setAsrModel(asrModelField.getText());
@@ -325,10 +326,8 @@ public final class SettingsDialog extends JDialog {
             // Save failed silently — settings still apply in-memory for this session
         }
 
-        if (onSaved != null) {
-            onSaved.run();
-        }
         dispose();
+        Restarter.restart();
     }
 
     private void resetDisplayDefaults() {

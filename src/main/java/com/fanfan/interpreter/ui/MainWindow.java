@@ -9,7 +9,6 @@ import com.fanfan.interpreter.audio.AudioCaptureService;
 import com.fanfan.interpreter.audio.AudioLevel;
 import com.fanfan.interpreter.audio.AudioSource;
 import com.fanfan.interpreter.config.AppConfig;
-import com.fanfan.interpreter.config.ConfigValidator;
 import com.fanfan.interpreter.config.UserSettings;
 import com.fanfan.interpreter.export.SubtitleTxtExporter;
 import com.fanfan.interpreter.metrics.LatencyTracker;
@@ -103,10 +102,11 @@ public final class MainWindow extends JFrame {
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(12, 12));
 
-        ConfigValidator.ValidationResult validation = ConfigValidator.validate(config);
-        ConfigValidator.showValidationResult(validation);
-
-        preWarmAsrConnection();
+        // Network validation and ASR pre-warm disabled — launch directly.
+        // To re-enable, uncomment:
+        //   ConfigValidator.ValidationResult validation = ConfigValidator.validate(config);
+        //   ConfigValidator.showValidationResult(validation);
+        //   preWarmAsrConnection();
 
         setJMenuBar(buildMenuBar());
         add(buildToolbar(), BorderLayout.NORTH);
@@ -308,39 +308,10 @@ public final class MainWindow extends JFrame {
         return bar;
     }
 
-    private void refreshConfig() {
-        config = AppConfig.fromSettings(userSettings);
-        translationScheduler.close();
-        translationScheduler = new TranslationScheduler(new QwenMtTranslator(config), userSettings.draftDelayMs(), config.targetLanguage());
-    }
-
     private void openSettings() {
         SettingsDialog.show(this, userSettings, () -> {
-            refreshConfig();
-            floatingSourceColor = SettingsDialog.parseColor(userSettings.floatingSourceColor(), Color.WHITE);
-            floatingTranslationColor = SettingsDialog.parseColor(userSettings.floatingTranslationColor(), new Color(255, 230, 150));
-            floatingSourceFont = userSettings.floatingSourceFont();
-            floatingTranslationFont = userSettings.floatingTranslationFont();
-            floatingSubtitleWindow.applyDisplaySettings(
-                    floatingSourceColor, floatingTranslationColor,
-                    floatingSourceFont, floatingTranslationFont,
-                    userSettings.floatingSourceFontSize(), userSettings.floatingTranslationFontSize());
-            floatingSubtitleWindow.setLineGap(userSettings.floatingLineSpacing());
-            floatingSubtitleWindow.setBgOpacity(userSettings.floatingBgOpacity());
-            floatingSubtitleWindow.setSourceVisible(userSettings.floatingShowSource());
-            applyTheme(userSettings.theme());
-            updateLiveSubtitle(subtitleStore.snapshot());
+            // App will restart after save — no in-place refresh needed.
         });
-    }
-
-    private static void applyTheme(String theme) {
-        if ("light".equals(theme)) {
-            com.formdev.flatlaf.FlatLightLaf.setup();
-        } else {
-            com.formdev.flatlaf.FlatDarkLaf.setup();
-        }
-        Theme.applyDefaults();
-        com.formdev.flatlaf.FlatLaf.updateUI();
     }
 
     private void refreshSources() {

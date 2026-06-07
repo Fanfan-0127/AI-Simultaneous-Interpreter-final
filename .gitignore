@@ -6,3 +6,6 @@ dependency-reduced-pom.xml
 .vscode/
 Qwen-ASR-Realtime-JavaSDK.md
 requirements.md
+dist/
+package/windows/icon.ico
+package/windows/icon.png
