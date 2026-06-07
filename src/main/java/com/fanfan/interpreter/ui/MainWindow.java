@@ -109,6 +109,9 @@ public final class MainWindow extends JFrame {
         stopButton.setEnabled(false);
         bindActions();
         pack();
+        floatingSubtitleWindow.applyDisplaySettings(
+                floatingSourceColor, floatingTranslationColor,
+                userSettings.floatingSourceFontSize(), userSettings.floatingTranslationFontSize());
         floatingSubtitleWindow.setVisible(true);
     }
 
