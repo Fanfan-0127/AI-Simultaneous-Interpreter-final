@@ -444,7 +444,7 @@ public final class MainWindow extends JFrame {
             correctionTableModel.setRevisions(update.revisions());
             updateLiveSubtitle(update.entry());
             latencyTracker.markTranslationStarted();
-            translationScheduler.translate(update.entry(), finalResult, correctedText, stableSentence,
+            translationScheduler.translate(update.entry(), finalResult, text, correctedText, stableSentence,
                     this::onTranslation, this::onTranslationError);
         });
     }

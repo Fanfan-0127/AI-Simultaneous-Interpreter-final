@@ -13,7 +13,6 @@ import java.util.function.Consumer;
 
 public final class TranslationScheduler implements AutoCloseable {
     private static final long DRAFT_DELAY_MS = 180;
-    private static final long CORRECTION_DELAY_MS = 650;
 
     private final Translator translator;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
@@ -29,6 +28,7 @@ public final class TranslationScheduler implements AutoCloseable {
     private final Map<String, ScheduledFuture<?>> pendingDrafts = new ConcurrentHashMap<>();
     private final Map<String, ScheduledFuture<?>> pendingCorrections = new ConcurrentHashMap<>();
     private final Map<String, Long> latestVersions = new ConcurrentHashMap<>();
+    private final Map<String, String> deliveredDrafts = new ConcurrentHashMap<>();
 
     public TranslationScheduler(Translator translator) {
         this.translator = translator;
@@ -40,7 +40,8 @@ public final class TranslationScheduler implements AutoCloseable {
             Consumer<TranslationResult> resultConsumer,
             Consumer<Exception> errorConsumer
     ) {
-        translate(entry, finalResult, entry.sourceText(), false, resultConsumer, errorConsumer);
+        String text = entry.sourceText();
+        translate(entry, finalResult, text, text, false, resultConsumer, errorConsumer);
     }
 
     public void translate(
@@ -50,7 +51,7 @@ public final class TranslationScheduler implements AutoCloseable {
             Consumer<TranslationResult> resultConsumer,
             Consumer<Exception> errorConsumer
     ) {
-        translate(entry, finalResult, translationSourceText, false, resultConsumer, errorConsumer);
+        translate(entry, finalResult, translationSourceText, translationSourceText, false, resultConsumer, errorConsumer);
     }
 
     public void translate(
@@ -61,26 +62,39 @@ public final class TranslationScheduler implements AutoCloseable {
             Consumer<TranslationResult> resultConsumer,
             Consumer<Exception> errorConsumer
     ) {
-        if (entry == null || translationSourceText == null || translationSourceText.isBlank()) {
+        translate(entry, finalResult, translationSourceText, translationSourceText, stableSentence, resultConsumer, errorConsumer);
+    }
+
+    public void translate(
+            SubtitleEntry entry,
+            boolean finalResult,
+            String rawSourceText,
+            String correctedSourceText,
+            boolean stableSentence,
+            Consumer<TranslationResult> resultConsumer,
+            Consumer<Exception> errorConsumer
+    ) {
+        if (entry == null || rawSourceText == null || rawSourceText.isBlank()) {
             return;
         }
         String entryId = entry.id();
         long sourceVersion = entry.sourceVersion();
-        String sourceText = translationSourceText;
         String draftText = entry.translatedText();
+        String correctionText = correctedSourceText != null ? correctedSourceText : rawSourceText;
         latestVersions.put(entryId, sourceVersion);
+        long draftDelay = finalResult ? 0 : DRAFT_DELAY_MS;
         schedule(
                 pendingDrafts,
                 entryId,
-                DRAFT_DELAY_MS,
-                () -> submitDraft(entryId, sourceVersion, sourceText, resultConsumer, errorConsumer)
+                draftDelay,
+                () -> submitDraft(entryId, sourceVersion, rawSourceText, resultConsumer, errorConsumer)
         );
         if (finalResult || stableSentence) {
             schedule(
                     pendingCorrections,
                     entryId,
-                    finalResult ? 0 : CORRECTION_DELAY_MS,
-                    () -> submitCorrection(entryId, sourceVersion, sourceText, draftText, resultConsumer, errorConsumer)
+                    0,
+                    () -> submitCorrection(entryId, sourceVersion, correctionText, draftText, resultConsumer, errorConsumer)
             );
         }
     }
@@ -90,6 +104,7 @@ public final class TranslationScheduler implements AutoCloseable {
         pendingDrafts.values().forEach(future -> future.cancel(false));
         pendingCorrections.values().forEach(future -> future.cancel(false));
         latestVersions.clear();
+        deliveredDrafts.clear();
         scheduler.shutdownNow();
         executor.shutdownNow();
     }
@@ -127,6 +142,7 @@ public final class TranslationScheduler implements AutoCloseable {
                 if (stale(entryId, sourceVersion)) {
                     return;
                 }
+                deliveredDrafts.put(entryId, translatedText);
                 resultConsumer.accept(new TranslationResult(entryId, sourceVersion, translatedText));
             } catch (Exception exception) {
                 errorConsumer.accept(exception);
@@ -147,10 +163,15 @@ public final class TranslationScheduler implements AutoCloseable {
                 if (stale(entryId, sourceVersion)) {
                     return;
                 }
-                String translatedText = translator.refineEnglishToChinese(sourceText, draftText);
+                String translatedText = translator.translateEnglishToChinese(sourceText);
                 if (stale(entryId, sourceVersion)) {
                     return;
                 }
+                String previous = deliveredDrafts.get(entryId);
+                if (translatedText.equals(previous)) {
+                    return;
+                }
+                deliveredDrafts.put(entryId, translatedText);
                 resultConsumer.accept(new TranslationResult(entryId, sourceVersion, translatedText));
             } catch (Exception exception) {
                 errorConsumer.accept(exception);

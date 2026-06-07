@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,24 +35,40 @@ class TranslationSchedulerTest {
     }
 
     @Test
-    void finalTranscriptTriggersImmediateCorrection() throws Exception {
+    void finalResultDeliversDraftAndCorrectionWithDifferentTexts() throws Exception {
         RecordingTranslator translator = new RecordingTranslator();
         try (TranslationScheduler scheduler = new TranslationScheduler(translator)) {
-            SubtitleEntry entry = new SubtitleEntry("final words", true);
-            entry.updateTranslation("初稿");
-            CountDownLatch latch = new CountDownLatch(1);
+            SubtitleEntry entry = new SubtitleEntry("hello world", true);
+            List<String> results = new CopyOnWriteArrayList<>();
+            CountDownLatch latch = new CountDownLatch(2);
 
-            scheduler.translate(entry, true, result -> {
-                if (result.translatedText().startsWith("corrected:")) {
-                    latch.countDown();
-                }
-            }, exception -> {
-            });
+            scheduler.translate(entry, true, "hello world", "hello world.", true,
+                    result -> { results.add(result.translatedText()); latch.countDown(); },
+                    exception -> {
+                    });
 
             assertTrue(latch.await(2, TimeUnit.SECONDS));
+            assertEquals(List.of("draft:hello world", "draft:hello world."), results);
         }
+    }
 
-        assertEquals(List.of("final words|初稿"), translator.corrections());
+    @Test
+    void correctionSkippedWhenSameAsDraft() throws Exception {
+        RecordingTranslator translator = new RecordingTranslator();
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator)) {
+            SubtitleEntry entry = new SubtitleEntry("hello world", true);
+            List<String> results = new CopyOnWriteArrayList<>();
+            CountDownLatch latch = new CountDownLatch(1);
+
+            scheduler.translate(entry, true, "hello world", "hello world", true,
+                    result -> { results.add(result.translatedText()); latch.countDown(); },
+                    exception -> {
+                    });
+
+            assertTrue(latch.await(2, TimeUnit.SECONDS));
+            assertEquals(1, results.size());
+            assertEquals("draft:hello world", results.getFirst());
+        }
     }
 
     @Test
@@ -85,7 +102,6 @@ class TranslationSchedulerTest {
 
     private static final class RecordingTranslator implements Translator {
         private final List<String> drafts = new ArrayList<>();
-        private final List<String> corrections = new ArrayList<>();
 
         @Override
         public String translateEnglishToChinese(String englishText) {
@@ -93,18 +109,8 @@ class TranslationSchedulerTest {
             return "draft:" + englishText;
         }
 
-        @Override
-        public String refineEnglishToChinese(String englishText, String draftChineseText) {
-            corrections.add(englishText + "|" + draftChineseText);
-            return "corrected:" + englishText;
-        }
-
         List<String> drafts() {
             return drafts;
-        }
-
-        List<String> corrections() {
-            return corrections;
         }
     }
 
