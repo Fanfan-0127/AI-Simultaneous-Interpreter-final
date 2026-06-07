@@ -6,6 +6,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JColorChooser;
+import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -49,8 +50,12 @@ public final class SettingsDialog extends JDialog {
     private Color translationColor;
     private final JButton sourceColorButton;
     private final JButton translationColorButton;
+    private final JLabel sourceColorHex = new JLabel();
+    private final JLabel translationColorHex = new JLabel();
     private final JSpinner sourceFontSizeSpinner;
     private final JSpinner translationFontSizeSpinner;
+    private final JSpinner lineSpacingSpinner;
+    private final JComboBox<String> themeCombo;
 
     private SettingsDialog(Frame owner, UserSettings settings, Runnable onSaved) {
         super(owner, "偏好设置", true);
@@ -75,6 +80,9 @@ public final class SettingsDialog extends JDialog {
         translationColorButton = new JButton();
         sourceFontSizeSpinner = new JSpinner(new SpinnerNumberModel(settings.floatingSourceFontSize(), 12, 48, 1));
         translationFontSizeSpinner = new JSpinner(new SpinnerNumberModel(settings.floatingTranslationFontSize(), 12, 48, 1));
+        lineSpacingSpinner = new JSpinner(new SpinnerNumberModel(settings.floatingLineSpacing(), 0, 16, 1));
+        themeCombo = new JComboBox<>(new String[]{"暗色主题", "亮色主题"});
+        themeCombo.setSelectedIndex("light".equals(settings.theme()) ? 1 : 0);
 
         buildUi();
     }
@@ -186,27 +194,42 @@ public final class SettingsDialog extends JDialog {
         c.insets = new Insets(6, 4, 6, 4);
         c.weightx = 1;
 
+        addLabel(panel, c, "主题");
+        addField(panel, c, themeCombo);
+
         addLabel(panel, c, "原文颜色");
         configureColorButton(sourceColorButton, sourceColor);
+        updateColorHex(sourceColorHex, sourceColor);
         sourceColorButton.addActionListener(event -> {
             Color chosen = JColorChooser.showDialog(this, "选择原文颜色", sourceColor);
             if (chosen != null) {
                 sourceColor = chosen;
                 configureColorButton(sourceColorButton, sourceColor);
+                updateColorHex(sourceColorHex, sourceColor);
             }
         });
-        addField(panel, c, sourceColorButton);
+        JPanel sourceColorRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        sourceColorRow.setOpaque(false);
+        sourceColorRow.add(sourceColorButton);
+        sourceColorRow.add(sourceColorHex);
+        addField(panel, c, sourceColorRow);
 
         addLabel(panel, c, "译文颜色");
         configureColorButton(translationColorButton, translationColor);
+        updateColorHex(translationColorHex, translationColor);
         translationColorButton.addActionListener(event -> {
             Color chosen = JColorChooser.showDialog(this, "选择译文颜色", translationColor);
             if (chosen != null) {
                 translationColor = chosen;
                 configureColorButton(translationColorButton, translationColor);
+                updateColorHex(translationColorHex, translationColor);
             }
         });
-        addField(panel, c, translationColorButton);
+        JPanel transColorRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        transColorRow.setOpaque(false);
+        transColorRow.add(translationColorButton);
+        transColorRow.add(translationColorHex);
+        addField(panel, c, transColorRow);
 
         addLabel(panel, c, "原文字号 (pt)");
         addField(panel, c, sourceFontSizeSpinner);
@@ -214,11 +237,19 @@ public final class SettingsDialog extends JDialog {
         addLabel(panel, c, "译文字号 (pt)");
         addField(panel, c, translationFontSizeSpinner);
 
+        addLabel(panel, c, "行间距 (px)");
+        addField(panel, c, lineSpacingSpinner);
+
         c.gridy++;
         c.weighty = 1;
         panel.add(new JLabel(), c);
 
         return panel;
+    }
+
+    private static void updateColorHex(JLabel label, Color color) {
+        label.setText(colorToHex(color));
+        label.setFont(new java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, 11));
     }
 
     private void saveAndClose() {
@@ -236,6 +267,8 @@ public final class SettingsDialog extends JDialog {
         settings.setFloatingTranslationColor(colorToHex(translationColor));
         settings.setFloatingSourceFontSize(((Number) sourceFontSizeSpinner.getValue()).intValue());
         settings.setFloatingTranslationFontSize(((Number) translationFontSizeSpinner.getValue()).intValue());
+        settings.setFloatingLineSpacing(((Number) lineSpacingSpinner.getValue()).intValue());
+        settings.setTheme(themeCombo.getSelectedIndex() == 1 ? "light" : "dark");
 
         try {
             settings.save();
@@ -267,7 +300,7 @@ public final class SettingsDialog extends JDialog {
 
     private static void configureColorButton(JButton button, Color color) {
         button.setBackground(color);
-        button.setPreferredSize(new Dimension(60, 28));
+        button.setPreferredSize(new Dimension(36, 36));
         button.setOpaque(true);
         button.setBorderPainted(true);
     }

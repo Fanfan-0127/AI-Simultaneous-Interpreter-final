@@ -56,6 +56,30 @@ public final class UserSettings {
     @SerializedName("floating_translation_font_size")
     private int floatingTranslationFontSize = 28;
 
+    @SerializedName("floating_line_spacing")
+    private int floatingLineSpacing = 4;
+
+    @SerializedName("theme")
+    private String theme = "dark";
+
+    @SerializedName("floating_window_x")
+    private int floatingWindowX = -1;
+
+    @SerializedName("floating_window_y")
+    private int floatingWindowY = -1;
+
+    @SerializedName("main_window_x")
+    private int mainWindowX = -1;
+
+    @SerializedName("main_window_y")
+    private int mainWindowY = -1;
+
+    @SerializedName("main_window_width")
+    private int mainWindowWidth = -1;
+
+    @SerializedName("main_window_height")
+    private int mainWindowHeight = -1;
+
     public static UserSettings load() {
         return loadFrom(SETTINGS_FILE);
     }
@@ -147,6 +171,32 @@ public final class UserSettings {
     public void setFloatingTranslationFontSize(int floatingTranslationFontSize) {
         this.floatingTranslationFontSize = floatingTranslationFontSize;
     }
+
+    public int floatingLineSpacing() { return floatingLineSpacing; }
+    public void setFloatingLineSpacing(int floatingLineSpacing) {
+        this.floatingLineSpacing = floatingLineSpacing;
+    }
+
+    public String theme() { return theme; }
+    public void setTheme(String theme) { this.theme = theme != null ? theme : "dark"; }
+
+    public int floatingWindowX() { return floatingWindowX; }
+    public void setFloatingWindowX(int floatingWindowX) { this.floatingWindowX = floatingWindowX; }
+
+    public int floatingWindowY() { return floatingWindowY; }
+    public void setFloatingWindowY(int floatingWindowY) { this.floatingWindowY = floatingWindowY; }
+
+    public int mainWindowX() { return mainWindowX; }
+    public void setMainWindowX(int mainWindowX) { this.mainWindowX = mainWindowX; }
+
+    public int mainWindowY() { return mainWindowY; }
+    public void setMainWindowY(int mainWindowY) { this.mainWindowY = mainWindowY; }
+
+    public int mainWindowWidth() { return mainWindowWidth; }
+    public void setMainWindowWidth(int mainWindowWidth) { this.mainWindowWidth = mainWindowWidth; }
+
+    public int mainWindowHeight() { return mainWindowHeight; }
+    public void setMainWindowHeight(int mainWindowHeight) { this.mainWindowHeight = mainWindowHeight; }
 
     // ---- helpers ----
 

@@ -43,6 +43,8 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Point;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -77,8 +79,9 @@ public final class MainWindow extends JFrame {
     private final JButton lockFloatingButton = new JButton("锁定悬浮窗");
     private final JButton settingsButton = new JButton("⚙ 设置");
     private final JLabel statusLabel = new JLabel("未监听");
-    private final JLabel audioStatusLabel = new JLabel("音频未启动");
+    private final AudioLevelIndicator audioLevelIndicator = new AudioLevelIndicator();
     private final JLabel latencyLabel = new JLabel("延迟: --");
+    private final JLabel statusDot = new JLabel("●");
     private final SubtitleTableModel subtitleTableModel = new SubtitleTableModel();
     private final CorrectionTableModel correctionTableModel = new CorrectionTableModel();
     private final JTextArea liveSubtitle = new JTextArea();
@@ -105,6 +108,7 @@ public final class MainWindow extends JFrame {
         setJMenuBar(buildMenuBar());
         add(buildToolbar(), BorderLayout.NORTH);
         add(buildContent(), BorderLayout.CENTER);
+        add(buildStatusBar(), BorderLayout.SOUTH);
         refreshSources();
         stopButton.setEnabled(false);
         bindActions();
@@ -112,11 +116,14 @@ public final class MainWindow extends JFrame {
         floatingSubtitleWindow.applyDisplaySettings(
                 floatingSourceColor, floatingTranslationColor,
                 userSettings.floatingSourceFontSize(), userSettings.floatingTranslationFontSize());
+        floatingSubtitleWindow.setLineGap(userSettings.floatingLineSpacing());
         floatingSubtitleWindow.setVisible(true);
+        restoreWindowPositions();
     }
 
     private JPanel buildToolbar() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        panel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.BORDER));
         sourceCombo.setPreferredSize(new Dimension(420, 28));
         panel.add(new JLabel("音频源"));
         panel.add(sourceCombo);
@@ -127,21 +134,55 @@ public final class MainWindow extends JFrame {
         panel.add(termsButton);
         panel.add(lockFloatingButton);
         panel.add(settingsButton);
-        panel.add(statusLabel);
-        panel.add(audioStatusLabel);
-        panel.add(latencyLabel);
         return panel;
+    }
+
+    private JPanel buildStatusBar() {
+        JPanel bar = new JPanel(new BorderLayout(20, 0));
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER),
+                BorderFactory.createEmptyBorder(6, 16, 6, 16)));
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        left.setOpaque(false);
+        statusDot.setForeground(Theme.TEXT_MUTED);
+        statusDot.setFont(new java.awt.Font(Font.SANS_SERIF, Font.PLAIN, 10));
+        left.add(statusDot);
+        left.add(statusLabel);
+        JPanel center = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        center.setOpaque(false);
+        center.add(new JLabel("音频: "));
+        center.add(audioLevelIndicator);
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        right.setOpaque(false);
+        latencyLabel.setFont(new java.awt.Font(Font.MONOSPACED, Font.PLAIN, 12));
+        right.add(latencyLabel);
+        bar.add(left, BorderLayout.WEST);
+        bar.add(center, BorderLayout.CENTER);
+        bar.add(right, BorderLayout.EAST);
+        return bar;
     }
 
     private JSplitPane buildContent() {
         JTable table = new JTable(subtitleTableModel);
-        table.setRowHeight(30);
+        table.setRowHeight(36);
+        table.setFillsViewportHeight(true);
+        table.setShowHorizontalLines(true);
+        table.setShowVerticalLines(false);
+        table.setGridColor(Theme.BORDER);
+        table.getTableHeader().setFont(
+                table.getTableHeader().getFont().deriveFont(Font.BOLD, 12f));
         table.getColumnModel().getColumn(0).setPreferredWidth(180);
         table.getColumnModel().getColumn(1).setPreferredWidth(520);
         table.getColumnModel().getColumn(2).setPreferredWidth(240);
 
         JTable correctionTable = new JTable(correctionTableModel);
-        correctionTable.setRowHeight(30);
+        correctionTable.setRowHeight(36);
+        correctionTable.setFillsViewportHeight(true);
+        correctionTable.setShowHorizontalLines(true);
+        correctionTable.setShowVerticalLines(false);
+        correctionTable.setGridColor(Theme.BORDER);
+        correctionTable.getTableHeader().setFont(
+                correctionTable.getTableHeader().getFont().deriveFont(Font.BOLD, 12f));
         correctionTable.getColumnModel().getColumn(0).setPreferredWidth(180);
         correctionTable.getColumnModel().getColumn(1).setPreferredWidth(120);
         correctionTable.getColumnModel().getColumn(2).setPreferredWidth(360);
@@ -150,16 +191,21 @@ public final class MainWindow extends JFrame {
         liveSubtitle.setEditable(false);
         liveSubtitle.setLineWrap(true);
         liveSubtitle.setWrapStyleWord(true);
-        liveSubtitle.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
+        liveSubtitle.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
+        liveSubtitle.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.BORDER, 1),
+                BorderFactory.createEmptyBorder(14, 14, 14, 14)));
         liveSubtitle.setText("等待识别结果...");
 
         JSplitPane recordsPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
                 new JScrollPane(table), new JScrollPane(correctionTable));
         recordsPane.setResizeWeight(0.68);
+        recordsPane.setBorder(null);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
                 recordsPane, new JScrollPane(liveSubtitle));
         splitPane.setResizeWeight(0.78);
+        splitPane.setBorder(null);
         return splitPane;
     }
 
@@ -173,6 +219,7 @@ public final class MainWindow extends JFrame {
         settingsButton.addActionListener(event -> openSettings());
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosed(WindowEvent event) {
+                saveWindowPositions();
                 stopSession();
                 QwenRealtimeAsrClient pw = preWarmedClient;
                 preWarmedClient = null;
@@ -242,8 +289,20 @@ public final class MainWindow extends JFrame {
             floatingSubtitleWindow.applyDisplaySettings(
                     floatingSourceColor, floatingTranslationColor,
                     userSettings.floatingSourceFontSize(), userSettings.floatingTranslationFontSize());
+            floatingSubtitleWindow.setLineGap(userSettings.floatingLineSpacing());
+            applyTheme(userSettings.theme());
             updateLiveSubtitle(subtitleStore.snapshot());
         });
+    }
+
+    private static void applyTheme(String theme) {
+        if ("light".equals(theme)) {
+            com.formdev.flatlaf.FlatLightLaf.setup();
+        } else {
+            com.formdev.flatlaf.FlatDarkLaf.setup();
+        }
+        Theme.applyDefaults();
+        com.formdev.flatlaf.FlatLaf.updateUI();
     }
 
     private void refreshSources() {
@@ -261,7 +320,6 @@ public final class MainWindow extends JFrame {
         startButton.setEnabled(false);
         refreshButton.setEnabled(false);
         statusLabel.setText("正在连接 Qwen ASR...");
-        audioStatusLabel.setText("音频准备中");
         subtitleStore.clear();
         stableTranscriptScheduler.clear();
         latencyTracker.reset();
@@ -284,7 +342,8 @@ public final class MainWindow extends JFrame {
                 SwingUtilities.invokeLater(() -> {
                     stopButton.setEnabled(true);
                     statusLabel.setText("正在监听 / 正在识别 / 正在翻译");
-                    audioStatusLabel.setText("音频监听中");
+                    statusDot.setForeground(Theme.STATUS_SUCCESS);
+                    audioLevelIndicator.setLevel(AudioLevel.Quality.SILENT);
                 });
             } catch (Exception exception) {
                 SwingUtilities.invokeLater(() -> {
@@ -292,7 +351,7 @@ public final class MainWindow extends JFrame {
                     refreshButton.setEnabled(true);
                     stopButton.setEnabled(false);
                     statusLabel.setText("启动失败");
-                    audioStatusLabel.setText("音频未启动");
+                    statusDot.setForeground(Theme.STATUS_ERROR);
 
                     String errorMessage = buildStartupErrorMessage(exception, selectedSource);
                     JOptionPane.showMessageDialog(
@@ -311,7 +370,7 @@ public final class MainWindow extends JFrame {
         refreshButton.setEnabled(true);
         stopButton.setEnabled(false);
         statusLabel.setText("正在结束...");
-        audioStatusLabel.setText("音频未启动");
+        statusDot.setForeground(Theme.TEXT_MUTED);
         latencyLabel.setText("延迟: --");
         audioCaptureService.stop();
         AsrClient client = asrClient;
@@ -514,12 +573,7 @@ public final class MainWindow extends JFrame {
     private void onAudioLevel(AudioLevel level) {
         SwingUtilities.invokeLater(() -> {
             if (asrClient == null) return;
-            audioStatusLabel.setText(switch (level.quality()) {
-                case SILENT -> "音频静音";
-                case LOW -> "音量偏低";
-                case CLIPPING -> "爆音风险";
-                case NORMAL -> "音频正常";
-            });
+            audioLevelIndicator.setLevel(level.quality());
         });
     }
 
@@ -547,6 +601,30 @@ public final class MainWindow extends JFrame {
         String s = source == null ? "" : source;
         String t = translation == null ? "" : translation;
         return t.isBlank() ? s : s + System.lineSeparator() + t;
+    }
+
+    private void saveWindowPositions() {
+        Point floatPos = floatingSubtitleWindow.getSavedPosition();
+        userSettings.setFloatingWindowX(floatPos.x);
+        userSettings.setFloatingWindowY(floatPos.y);
+        userSettings.setMainWindowX(getX());
+        userSettings.setMainWindowY(getY());
+        userSettings.setMainWindowWidth(getWidth());
+        userSettings.setMainWindowHeight(getHeight());
+        try {
+            userSettings.save();
+        } catch (java.io.IOException ignored) {
+        }
+    }
+
+    private void restoreWindowPositions() {
+        if (userSettings.mainWindowX() >= 0 && userSettings.mainWindowY() >= 0
+                && userSettings.mainWindowWidth() > 0 && userSettings.mainWindowHeight() > 0) {
+            setBounds(userSettings.mainWindowX(), userSettings.mainWindowY(),
+                    userSettings.mainWindowWidth(), userSettings.mainWindowHeight());
+        }
+        floatingSubtitleWindow.restorePosition(
+                userSettings.floatingWindowX(), userSettings.floatingWindowY());
     }
 
     static final class SubtitleTableModel extends AbstractTableModel {
