@@ -90,6 +90,22 @@ public final class FloatingSubtitleWindow extends JWindow {
         }
     }
 
+    public void applyDisplaySettings(Color sourceColor, Color translationColor,
+                                      int sourceFontSize, int translationFontSize) {
+        if (sourceColor != null) {
+            sourceText.setForeground(sourceColor);
+        }
+        if (translationColor != null) {
+            translationText.setForeground(translationColor);
+        }
+        sourceText.setFont(new Font(Font.SANS_SERIF, Font.BOLD, sourceFontSize));
+        translationText.setFont(new Font(Font.SANS_SERIF, Font.BOLD, translationFontSize));
+        contentHeight = -1;
+        resizeToContent();
+        moveToBottomCenter();
+        repaint();
+    }
+
     private JPanel buildContent() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));

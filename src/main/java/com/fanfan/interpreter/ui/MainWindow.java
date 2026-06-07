@@ -10,6 +10,7 @@ import com.fanfan.interpreter.audio.AudioLevel;
 import com.fanfan.interpreter.audio.AudioSource;
 import com.fanfan.interpreter.config.AppConfig;
 import com.fanfan.interpreter.config.ConfigValidator;
+import com.fanfan.interpreter.config.UserSettings;
 import com.fanfan.interpreter.export.SubtitleTxtExporter;
 import com.fanfan.interpreter.metrics.LatencyTracker;
 import com.fanfan.interpreter.model.SubtitleEntry;
@@ -23,11 +24,13 @@ import com.fanfan.interpreter.translation.TranslationScheduler;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
-import javax.swing.JColorChooser;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -52,7 +55,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainWindow extends JFrame {
-    private final AppConfig config = AppConfig.fromEnvironment();
+    private final UserSettings userSettings = UserSettings.load();
+    private final AppConfig config = AppConfig.fromSettings(userSettings);
     private final SubtitleStore subtitleStore = new SubtitleStore();
     private final AudioCaptureService audioCaptureService = new AudioCaptureService();
     private final LatencyTracker latencyTracker = new LatencyTracker();
@@ -71,8 +75,7 @@ public final class MainWindow extends JFrame {
     private final JButton exportButton = new JButton("保存字幕");
     private final JButton termsButton = new JButton("查看术语");
     private final JButton lockFloatingButton = new JButton("锁定悬浮窗");
-    private final JButton sourceColorButton = new JButton("原文颜色");
-    private final JButton translationColorButton = new JButton("译文颜色");
+    private final JButton settingsButton = new JButton("⚙ 设置");
     private final JLabel statusLabel = new JLabel("未监听");
     private final JLabel audioStatusLabel = new JLabel("音频未启动");
     private final JLabel latencyLabel = new JLabel("延迟: --");
@@ -80,8 +83,8 @@ public final class MainWindow extends JFrame {
     private final CorrectionTableModel correctionTableModel = new CorrectionTableModel();
     private final JTextArea liveSubtitle = new JTextArea();
     private final FloatingSubtitleWindow floatingSubtitleWindow = new FloatingSubtitleWindow();
-    private Color floatingSourceColor = Color.WHITE;
-    private Color floatingTranslationColor = new Color(255, 230, 150);
+    private Color floatingSourceColor = SettingsDialog.parseColor(userSettings.floatingSourceColor(), Color.WHITE);
+    private Color floatingTranslationColor = SettingsDialog.parseColor(userSettings.floatingTranslationColor(), new Color(255, 230, 150));
     private volatile AsrClient asrClient;
     private volatile QwenRealtimeAsrClient preWarmedClient;
     private String previewSourceText = "等待识别结果...";
@@ -99,6 +102,7 @@ public final class MainWindow extends JFrame {
 
         preWarmAsrConnection();
 
+        setJMenuBar(buildMenuBar());
         add(buildToolbar(), BorderLayout.NORTH);
         add(buildContent(), BorderLayout.CENTER);
         refreshSources();
@@ -119,8 +123,7 @@ public final class MainWindow extends JFrame {
         panel.add(exportButton);
         panel.add(termsButton);
         panel.add(lockFloatingButton);
-        panel.add(sourceColorButton);
-        panel.add(translationColorButton);
+        panel.add(settingsButton);
         panel.add(statusLabel);
         panel.add(audioStatusLabel);
         panel.add(latencyLabel);
@@ -164,8 +167,7 @@ public final class MainWindow extends JFrame {
         exportButton.addActionListener(event -> exportSubtitles());
         termsButton.addActionListener(event -> showTermsDialog());
         lockFloatingButton.addActionListener(event -> toggleFloatingWindowLock());
-        sourceColorButton.addActionListener(event -> chooseFloatingTextColor(true));
-        translationColorButton.addActionListener(event -> chooseFloatingTextColor(false));
+        settingsButton.addActionListener(event -> openSettings());
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosed(WindowEvent event) {
                 stopSession();
@@ -192,6 +194,52 @@ public final class MainWindow extends JFrame {
             } catch (Exception ignored) {
                 // Pre-warm failed silently; startSession will create a new connection
             }
+        });
+    }
+
+    private JMenuBar buildMenuBar() {
+        JMenuBar bar = new JMenuBar();
+
+        JMenu fileMenu = new JMenu("文件");
+        JMenuItem exportItem = new JMenuItem("保存字幕...");
+        exportItem.addActionListener(event -> exportSubtitles());
+        fileMenu.add(exportItem);
+        fileMenu.addSeparator();
+        JMenuItem exitItem = new JMenuItem("退出");
+        exitItem.addActionListener(event -> dispose());
+        fileMenu.add(exitItem);
+        bar.add(fileMenu);
+
+        JMenu settingsMenu = new JMenu("设置");
+        JMenuItem prefsItem = new JMenuItem("偏好设置...");
+        prefsItem.addActionListener(event -> openSettings());
+        settingsMenu.add(prefsItem);
+        bar.add(settingsMenu);
+
+        JMenu helpMenu = new JMenu("帮助");
+        JMenuItem aboutItem = new JMenuItem("关于...");
+        aboutItem.addActionListener(event -> JOptionPane.showMessageDialog(
+                this,
+                "AI 同声传译助手\n\n" +
+                "基于 DashScope Qwen ASR + MT 的实时同声传译工具\n" +
+                "适用于英文技术会议、在线课程的实时字幕翻译\n\n" +
+                "版本: 0.1.0",
+                "关于",
+                JOptionPane.INFORMATION_MESSAGE));
+        helpMenu.add(aboutItem);
+        bar.add(helpMenu);
+
+        return bar;
+    }
+
+    private void openSettings() {
+        SettingsDialog.show(this, userSettings, () -> {
+            floatingSourceColor = SettingsDialog.parseColor(userSettings.floatingSourceColor(), Color.WHITE);
+            floatingTranslationColor = SettingsDialog.parseColor(userSettings.floatingTranslationColor(), new Color(255, 230, 150));
+            floatingSubtitleWindow.applyDisplaySettings(
+                    floatingSourceColor, floatingTranslationColor,
+                    userSettings.floatingSourceFontSize(), userSettings.floatingTranslationFontSize());
+            updateLiveSubtitle(subtitleStore.snapshot());
         });
     }
 
@@ -357,22 +405,6 @@ public final class MainWindow extends JFrame {
         floatingSubtitleWindow.setLocked(nextLocked);
         lockFloatingButton.setText(nextLocked ? "解锁悬浮窗" : "锁定悬浮窗");
         statusLabel.setText(nextLocked ? "悬浮窗已锁定" : "悬浮窗已解锁");
-    }
-
-    private void chooseFloatingTextColor(boolean sourceText) {
-        Color initialColor = sourceText ? floatingSourceColor : floatingTranslationColor;
-        Color selectedColor = JColorChooser.showDialog(this,
-                sourceText ? "选择原文颜色" : "选择译文颜色", initialColor);
-        if (selectedColor == null) return;
-        if (sourceText) {
-            floatingSourceColor = selectedColor;
-            floatingSubtitleWindow.setSourceTextColor(selectedColor);
-            statusLabel.setText("已更新原文颜色");
-        } else {
-            floatingTranslationColor = selectedColor;
-            floatingSubtitleWindow.setTranslationTextColor(selectedColor);
-            statusLabel.setText("已更新译文颜色");
-        }
     }
 
     private String buildStartupErrorMessage(Exception exception, AudioSource source) {

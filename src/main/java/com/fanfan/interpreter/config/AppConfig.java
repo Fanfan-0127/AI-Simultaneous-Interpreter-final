@@ -25,6 +25,10 @@ public record AppConfig(
         );
     }
 
+    public static AppConfig fromSettings(UserSettings settings) {
+        return settings.toAppConfig();
+    }
+
     public boolean hasApiKey() {
         return apiKey != null && !apiKey.isBlank();
     }
