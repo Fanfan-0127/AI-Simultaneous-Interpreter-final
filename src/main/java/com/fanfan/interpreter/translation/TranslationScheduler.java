@@ -40,12 +40,22 @@ public final class TranslationScheduler implements AutoCloseable {
             Consumer<TranslationResult> resultConsumer,
             Consumer<Exception> errorConsumer
     ) {
-        if (entry == null || entry.sourceText().isBlank()) {
+        translate(entry, finalResult, entry.sourceText(), resultConsumer, errorConsumer);
+    }
+
+    public void translate(
+            SubtitleEntry entry,
+            boolean finalResult,
+            String translationSourceText,
+            Consumer<TranslationResult> resultConsumer,
+            Consumer<Exception> errorConsumer
+    ) {
+        if (entry == null || translationSourceText == null || translationSourceText.isBlank()) {
             return;
         }
         String entryId = entry.id();
         long sourceVersion = entry.sourceVersion();
-        String sourceText = entry.sourceText();
+        String sourceText = translationSourceText;
         String draftText = entry.translatedText();
         latestVersions.put(entryId, sourceVersion);
         schedule(
