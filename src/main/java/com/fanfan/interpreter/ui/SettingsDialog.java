@@ -56,6 +56,9 @@ public final class SettingsDialog extends JDialog {
     private final JSpinner translationFontSizeSpinner;
     private final JSpinner lineSpacingSpinner;
     private final JComboBox<String> themeCombo;
+    private final JComboBox<String> sourceFontCombo;
+    private final JComboBox<String> translationFontCombo;
+    private final JSpinner bgOpacitySpinner;
 
     private SettingsDialog(Frame owner, UserSettings settings, Runnable onSaved) {
         super(owner, "偏好设置", true);
@@ -84,6 +87,16 @@ public final class SettingsDialog extends JDialog {
         themeCombo = new JComboBox<>(new String[]{"暗色主题", "亮色主题"});
         themeCombo.setSelectedIndex("light".equals(settings.theme()) ? 1 : 0);
 
+        String[] systemFonts = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+                .getAvailableFontFamilyNames();
+        java.util.Arrays.sort(systemFonts);
+        sourceFontCombo = new JComboBox<>(systemFonts);
+        sourceFontCombo.setSelectedItem(settings.floatingSourceFont());
+        translationFontCombo = new JComboBox<>(systemFonts);
+        translationFontCombo.setSelectedItem(settings.floatingTranslationFont());
+
+        bgOpacitySpinner = new JSpinner(new SpinnerNumberModel(settings.floatingBgOpacity(), 0, 255, 5));
+
         buildUi();
     }
 
@@ -99,10 +112,13 @@ public final class SettingsDialog extends JDialog {
         tabs.addTab("显示", buildDisplayPanel());
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 8));
+        JButton resetButton = new JButton("恢复默认");
         JButton saveButton = new JButton("保存");
         JButton cancelButton = new JButton("取消");
+        resetButton.addActionListener(event -> resetDisplayDefaults());
         saveButton.addActionListener(event -> saveAndClose());
         cancelButton.addActionListener(event -> dispose());
+        buttonPanel.add(resetButton);
         buttonPanel.add(saveButton);
         buttonPanel.add(cancelButton);
 
@@ -240,6 +256,15 @@ public final class SettingsDialog extends JDialog {
         addLabel(panel, c, "行间距 (px)");
         addField(panel, c, lineSpacingSpinner);
 
+        addLabel(panel, c, "原文字体");
+        addField(panel, c, sourceFontCombo);
+
+        addLabel(panel, c, "译文字体");
+        addField(panel, c, translationFontCombo);
+
+        addLabel(panel, c, "背景不透明度");
+        addField(panel, c, bgOpacitySpinner);
+
         c.gridy++;
         c.weighty = 1;
         panel.add(new JLabel(), c);
@@ -268,6 +293,9 @@ public final class SettingsDialog extends JDialog {
         settings.setFloatingSourceFontSize(((Number) sourceFontSizeSpinner.getValue()).intValue());
         settings.setFloatingTranslationFontSize(((Number) translationFontSizeSpinner.getValue()).intValue());
         settings.setFloatingLineSpacing(((Number) lineSpacingSpinner.getValue()).intValue());
+        settings.setFloatingSourceFont((String) sourceFontCombo.getSelectedItem());
+        settings.setFloatingTranslationFont((String) translationFontCombo.getSelectedItem());
+        settings.setFloatingBgOpacity(((Number) bgOpacitySpinner.getValue()).intValue());
         settings.setTheme(themeCombo.getSelectedIndex() == 1 ? "light" : "dark");
 
         try {
@@ -280,6 +308,22 @@ public final class SettingsDialog extends JDialog {
             onSaved.run();
         }
         dispose();
+    }
+
+    private void resetDisplayDefaults() {
+        sourceColor = Color.WHITE;
+        translationColor = new Color(255, 230, 150);
+        configureColorButton(sourceColorButton, sourceColor);
+        updateColorHex(sourceColorHex, sourceColor);
+        configureColorButton(translationColorButton, translationColor);
+        updateColorHex(translationColorHex, translationColor);
+        sourceFontSizeSpinner.setValue(26);
+        translationFontSizeSpinner.setValue(28);
+        lineSpacingSpinner.setValue(4);
+        themeCombo.setSelectedIndex(0);
+        sourceFontCombo.setSelectedItem("SansSerif");
+        translationFontCombo.setSelectedItem("SansSerif");
+        bgOpacitySpinner.setValue(180);
     }
 
     private static void addLabel(JPanel panel, GridBagConstraints c, String text) {

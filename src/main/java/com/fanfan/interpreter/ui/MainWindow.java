@@ -88,6 +88,8 @@ public final class MainWindow extends JFrame {
     private final FloatingSubtitleWindow floatingSubtitleWindow = new FloatingSubtitleWindow();
     private Color floatingSourceColor = SettingsDialog.parseColor(userSettings.floatingSourceColor(), Color.WHITE);
     private Color floatingTranslationColor = SettingsDialog.parseColor(userSettings.floatingTranslationColor(), new Color(255, 230, 150));
+    private String floatingSourceFont = userSettings.floatingSourceFont();
+    private String floatingTranslationFont = userSettings.floatingTranslationFont();
     private volatile AsrClient asrClient;
     private volatile QwenRealtimeAsrClient preWarmedClient;
     private String previewSourceText = "等待识别结果...";
@@ -115,8 +117,10 @@ public final class MainWindow extends JFrame {
         pack();
         floatingSubtitleWindow.applyDisplaySettings(
                 floatingSourceColor, floatingTranslationColor,
+                floatingSourceFont, floatingTranslationFont,
                 userSettings.floatingSourceFontSize(), userSettings.floatingTranslationFontSize());
         floatingSubtitleWindow.setLineGap(userSettings.floatingLineSpacing());
+        floatingSubtitleWindow.setBgOpacity(userSettings.floatingBgOpacity());
         floatingSubtitleWindow.setVisible(true);
         restoreWindowPositions();
     }
@@ -286,10 +290,14 @@ public final class MainWindow extends JFrame {
         SettingsDialog.show(this, userSettings, () -> {
             floatingSourceColor = SettingsDialog.parseColor(userSettings.floatingSourceColor(), Color.WHITE);
             floatingTranslationColor = SettingsDialog.parseColor(userSettings.floatingTranslationColor(), new Color(255, 230, 150));
+            floatingSourceFont = userSettings.floatingSourceFont();
+            floatingTranslationFont = userSettings.floatingTranslationFont();
             floatingSubtitleWindow.applyDisplaySettings(
                     floatingSourceColor, floatingTranslationColor,
+                    floatingSourceFont, floatingTranslationFont,
                     userSettings.floatingSourceFontSize(), userSettings.floatingTranslationFontSize());
             floatingSubtitleWindow.setLineGap(userSettings.floatingLineSpacing());
+            floatingSubtitleWindow.setBgOpacity(userSettings.floatingBgOpacity());
             applyTheme(userSettings.theme());
             updateLiveSubtitle(subtitleStore.snapshot());
         });
