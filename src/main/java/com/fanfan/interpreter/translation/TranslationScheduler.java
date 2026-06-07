@@ -100,11 +100,19 @@ public final class TranslationScheduler implements AutoCloseable {
                 if (stale(entryId, sourceVersion)) {
                     return;
                 }
-                String translatedText = translator.translateEnglishToChinese(sourceText);
-                if (stale(entryId, sourceVersion)) {
-                    return;
-                }
-                resultConsumer.accept(new TranslationResult(entryId, sourceVersion, translatedText));
+                translator.translateEnglishToChineseStreaming(sourceText,
+                        token -> {
+                            if (!stale(entryId, sourceVersion)) {
+                                resultConsumer.accept(new TranslationResult(entryId, sourceVersion, token));
+                            }
+                        },
+                        finalText -> {},
+                        error -> {
+                            if (!stale(entryId, sourceVersion)) {
+                                errorConsumer.accept((Exception) error);
+                            }
+                        }
+                );
             } catch (Exception exception) {
                 errorConsumer.accept(exception);
             }

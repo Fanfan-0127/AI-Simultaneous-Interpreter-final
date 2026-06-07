@@ -5,9 +5,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -80,6 +82,44 @@ class TranslationSchedulerTest {
             assertTrue(results.await(2, TimeUnit.SECONDS));
             assertEquals(List.of("draft:new words"), translatedResults);
             assertEquals(2, translator.calls.get());
+        }
+    }
+
+    @Test
+    void streamsDraftTranslationTokensIncrementally() throws Exception {
+        StreamingRecordingTranslator translator = new StreamingRecordingTranslator();
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator)) {
+            SubtitleEntry entry = new SubtitleEntry("hello world", false);
+            List<String> tokens = new CopyOnWriteArrayList<>();
+            CountDownLatch done = new CountDownLatch(1);
+
+            scheduler.translate(entry, false, result -> {
+                tokens.add(result.translatedText());
+                if (result.translatedText().equals("你好世界")) {
+                    done.countDown();
+                }
+            }, exception -> {
+            });
+
+            assertTrue(done.await(2, TimeUnit.SECONDS));
+            assertEquals(List.of("你好", "你好世界"), tokens);
+        }
+    }
+
+    private static final class StreamingRecordingTranslator implements Translator {
+        @Override
+        public String translateEnglishToChinese(String englishText) {
+            return "你好世界";
+        }
+
+        @Override
+        public String translateEnglishToChineseStreaming(
+                String englishText, Consumer<String> onToken,
+                Consumer<String> onComplete, Consumer<Exception> onError) {
+            onToken.accept("你好");          // first token
+            onToken.accept("你好世界");       // second token (complete)
+            onComplete.accept("你好世界");
+            return "你好世界";
         }
     }
 
