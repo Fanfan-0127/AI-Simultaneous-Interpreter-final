@@ -8,7 +8,6 @@
 ## demo视频链接:
 【七牛云XEngineer暑期实训营-批次三-题目二-AI同声传译助手】https://www.bilibili.com/video/BV1YSEt6EE22?vd_source=62572507bea08a2f88404d5634fa0e1f
 
-
 ## 亮点
 
 ### ⚡ 极致低延迟（~300-800ms 端到端）
