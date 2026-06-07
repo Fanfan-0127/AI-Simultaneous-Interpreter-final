@@ -302,6 +302,7 @@ public final class MainWindow extends JFrame {
 
     private void showTermsDialog() {
         Map<String, String> terms = subtitleStore.extractTerms();
+        TranscriptCorrector.addTerms(terms.keySet());
         if (terms.isEmpty()) {
             JOptionPane.showMessageDialog(
                     this,
