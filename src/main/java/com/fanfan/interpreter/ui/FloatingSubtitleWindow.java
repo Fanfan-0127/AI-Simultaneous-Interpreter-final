@@ -38,8 +38,6 @@ public final class FloatingSubtitleWindow extends JWindow {
     private static final int TRANSLATION_MAX_LINES = 4;
     private static final int CORNER_RADIUS = 18;
     private static final float ANIM_DURATION_MS = 200f;
-    private static final int TEXT_MARGIN_H = 10;
-    private static final int TEXT_MARGIN_V = 5;
 
     private final ShadowTextArea sourceText = new ShadowTextArea("等待识别结果...");
     private final ShadowTextArea translationText = new ShadowTextArea("");
@@ -195,14 +193,11 @@ public final class FloatingSubtitleWindow extends JWindow {
 
     private void resizeToContent() {
         int textWidth = WINDOW_WIDTH - HORIZONTAL_PADDING;
-        int wrapWidth = textWidth - TEXT_MARGIN_H * 2;
-        int sourceHeight = wrappedTextHeight(sourceText, displayedSourceText, wrapWidth, SOURCE_MAX_LINES);
-        int translationHeight = wrappedTextHeight(translationText, displayedTranslationText, wrapWidth, TRANSLATION_MAX_LINES);
-        int sourceCompH = sourceHeight + TEXT_MARGIN_V * 2;
-        int translationCompH = translationHeight + TEXT_MARGIN_V * 2;
-        applyStableTextSize(sourceText, textWidth, sourceCompH);
-        applyStableTextSize(translationText, textWidth, translationCompH);
-        int windowHeight = Math.max(MIN_WINDOW_HEIGHT, sourceCompH + translationCompH + VERTICAL_PADDING + lineGap);
+        int sourceHeight = wrappedTextHeight(sourceText, displayedSourceText, textWidth, SOURCE_MAX_LINES);
+        int translationHeight = wrappedTextHeight(translationText, displayedTranslationText, textWidth, TRANSLATION_MAX_LINES);
+        applyStableTextSize(sourceText, textWidth, sourceHeight);
+        applyStableTextSize(translationText, textWidth, translationHeight);
+        int windowHeight = Math.max(MIN_WINDOW_HEIGHT, sourceHeight + translationHeight + VERTICAL_PADDING + lineGap);
         if (windowHeight == contentHeight) {
             repaint();
             return;
@@ -340,7 +335,6 @@ public final class FloatingSubtitleWindow extends JWindow {
         textArea.setLineWrap(true);
         textArea.setWrapStyleWord(true);
         textArea.setAlignmentX(CENTER_ALIGNMENT);
-        textArea.setMargin(new java.awt.Insets(TEXT_MARGIN_V, TEXT_MARGIN_H, TEXT_MARGIN_V, TEXT_MARGIN_H));
     }
 
     // ---- drag handler ----
