@@ -67,8 +67,8 @@ public final class SubtitleStore {
         activeEntry = null;
     }
 
-    public Map<String, String> extractTerms(com.fanfan.interpreter.translation.Translator translator) {
-        return TermExtractor.extractTerms(new ArrayList<>(entries), translator);
+    public Map<String, Integer> extractTerms() {
+        return TermExtractor.extractTerms(new ArrayList<>(entries));
     }
 
     private void addRevisionIfChanged(SubtitleRevision revision) {

@@ -1,7 +1,5 @@
 package com.fanfan.interpreter.model;
 
-import com.fanfan.interpreter.translation.Translator;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -9,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public final class TermExtractor {
     private static final int MIN_TERM_LENGTH = 3;
@@ -32,7 +29,7 @@ public final class TermExtractor {
     private TermExtractor() {
     }
 
-    public static Map<String, String> extractTerms(List<SubtitleEntry> entries, Translator translator) {
+    public static Map<String, Integer> extractTerms(List<SubtitleEntry> entries) {
         if (entries == null || entries.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -54,21 +51,13 @@ public final class TermExtractor {
             }
         }
 
-        List<String> qualifiedTerms = frequencies.entrySet().stream()
+        return frequencies.entrySet().stream()
                 .filter(e -> e.getValue() >= MIN_FREQUENCY)
                 .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
                 .limit(50)
-                .map(Map.Entry::getKey)
-                .toList();
-
-        Map<String, String> result = new LinkedHashMap<>();
-        for (String term : qualifiedTerms) {
-            String translation = translateTerm(term, translator);
-            if (translation != null && !translation.isBlank()) {
-                result.put(term, translation);
-            }
-        }
-        return result;
+                .collect(LinkedHashMap::new,
+                        (map, e) -> map.put(e.getKey(), e.getValue()),
+                        LinkedHashMap::putAll);
     }
 
     private static boolean isValidTerm(String term) {
@@ -85,13 +74,5 @@ public final class TermExtractor {
         }
 
         return true;
-    }
-
-    private static String translateTerm(String term, Translator translator) {
-        try {
-            return translator.translateEnglishToChinese(term);
-        } catch (Exception ignored) {
-            return null;
-        }
     }
 }
