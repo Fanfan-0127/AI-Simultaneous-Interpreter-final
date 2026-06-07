@@ -68,6 +68,9 @@ public final class UserSettings {
     @SerializedName("floating_bg_opacity")
     private int floatingBgOpacity = 180;
 
+    @SerializedName("floating_show_source")
+    private boolean floatingShowSource = true;
+
     @SerializedName("theme")
     private String theme = "dark";
 
@@ -200,6 +203,9 @@ public final class UserSettings {
     public void setFloatingBgOpacity(int floatingBgOpacity) {
         this.floatingBgOpacity = Math.max(0, Math.min(floatingBgOpacity, 255));
     }
+
+    public boolean floatingShowSource() { return floatingShowSource; }
+    public void setFloatingShowSource(boolean floatingShowSource) { this.floatingShowSource = floatingShowSource; }
 
     public String theme() { return theme; }
     public void setTheme(String theme) { this.theme = theme != null ? theme : "dark"; }

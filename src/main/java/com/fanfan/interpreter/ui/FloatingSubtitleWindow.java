@@ -40,6 +40,7 @@ public final class FloatingSubtitleWindow extends JWindow {
     private final ShadowTextArea sourceText = new ShadowTextArea("等待识别结果...");
     private final ShadowTextArea translationText = new ShadowTextArea("");
     private final JPanel contentPanel;
+    private javax.swing.Box.Filler lineGapStrut;
     private boolean locked;
     private Point dragStartOnScreen;
     private Point dragStartWindowLocation;
@@ -48,6 +49,7 @@ public final class FloatingSubtitleWindow extends JWindow {
     private int contentHeight = -1;
     private int lineGap = 4;
     private int bgAlpha = 180;
+    private boolean sourceVisible = true;
 
     // ---- animation state ----
     private float animProgress = 1f;
@@ -142,6 +144,23 @@ public final class FloatingSubtitleWindow extends JWindow {
         repaint();
     }
 
+    public void setSourceVisible(boolean visible) {
+        if (this.sourceVisible == visible) return;
+        this.sourceVisible = visible;
+        sourceText.setVisible(visible);
+        if (lineGapStrut != null) {
+            lineGapStrut.setVisible(visible);
+            Dimension gapSize = visible ? new Dimension(0, lineGap) : new Dimension(0, 0);
+            lineGapStrut.setMinimumSize(gapSize);
+            lineGapStrut.setPreferredSize(gapSize);
+            lineGapStrut.setMaximumSize(gapSize);
+        }
+        contentHeight = -1;
+        resizeToContent();
+        moveToBottomCenter();
+        repaint();
+    }
+
     public Point getSavedPosition() {
         return getLocation();
     }
@@ -172,7 +191,8 @@ public final class FloatingSubtitleWindow extends JWindow {
         bindDragHandler(sourceText, dragHandler);
         bindDragHandler(translationText, dragHandler);
         panel.add(sourceText);
-        panel.add(Box.createVerticalStrut(lineGap));
+        lineGapStrut = (javax.swing.Box.Filler) Box.createVerticalStrut(lineGap);
+        panel.add(lineGapStrut);
         panel.add(translationText);
         return panel;
     }
@@ -191,11 +211,14 @@ public final class FloatingSubtitleWindow extends JWindow {
 
     private void resizeToContent() {
         int textWidth = WINDOW_WIDTH - HORIZONTAL_PADDING;
-        int sourceHeight = wrappedTextHeight(sourceText, displayedSourceText, textWidth, SOURCE_MAX_LINES);
+        int sourceHeight = sourceVisible
+                ? wrappedTextHeight(sourceText, displayedSourceText, textWidth, SOURCE_MAX_LINES)
+                : 0;
         int translationHeight = wrappedTextHeight(translationText, displayedTranslationText, textWidth, TRANSLATION_MAX_LINES);
-        applyStableTextSize(sourceText, textWidth, sourceHeight);
+        applyStableTextSize(sourceText, textWidth, Math.max(0, sourceHeight));
         applyStableTextSize(translationText, textWidth, translationHeight);
-        int windowHeight = Math.max(MIN_WINDOW_HEIGHT, sourceHeight + translationHeight + VERTICAL_PADDING + lineGap);
+        int gapHeight = sourceVisible ? lineGap : 0;
+        int windowHeight = Math.max(MIN_WINDOW_HEIGHT, sourceHeight + translationHeight + VERTICAL_PADDING + gapHeight);
         if (windowHeight == contentHeight) {
             repaint();
             return;
@@ -293,21 +316,30 @@ public final class FloatingSubtitleWindow extends JWindow {
 
         @Override
         protected void paintComponent(Graphics g) {
+            if (animAlpha <= 0.005f) return; // fully transparent — skip all rendering
             Graphics2D g2d = (Graphics2D) g.create();
             try {
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // animation alpha
                 if (animAlpha < 1f) {
                     g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, animAlpha));
                 }
-                // rounded dark backdrop
                 g2d.setColor(new Color(0, 0, 0, bgAlpha));
                 g2d.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), BG_ARC, BG_ARC));
             } finally {
                 g2d.dispose();
             }
-            // single-pass text rendering (no broken shadow)
-            super.paintComponent(g);
+            // text rendering with same alpha composite
+            if (animAlpha < 1f) {
+                Graphics2D g2dText = (Graphics2D) g.create();
+                try {
+                    g2dText.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, animAlpha));
+                    super.paintComponent(g2dText);
+                } finally {
+                    g2dText.dispose();
+                }
+            } else {
+                super.paintComponent(g);
+            }
         }
     }
 
