@@ -1,5 +1,6 @@
 package com.fanfan.interpreter.ui;
 
+import com.fanfan.interpreter.config.Language;
 import com.fanfan.interpreter.config.UserSettings;
 
 import javax.swing.BorderFactory;
@@ -38,7 +39,8 @@ public final class SettingsDialog extends JDialog {
     private final JTextField mtModelField;
 
     // Audio & Translation tab
-    private final JTextField asrLanguageField;
+    private final JComboBox<Language.AsrLanguage> asrLanguageCombo;
+    private final JComboBox<Language.MtTargetLanguage> targetLanguageCombo;
     private final JSpinner asrSampleRateSpinner;
     private final JSpinner asrVadThresholdSpinner;
     private final JSpinner asrVadSilenceMsSpinner;
@@ -73,7 +75,14 @@ public final class SettingsDialog extends JDialog {
         asrModelField = new JTextField(settings.asrModel(), 20);
         mtModelField = new JTextField(settings.mtModel(), 20);
 
-        asrLanguageField = new JTextField(settings.asrLanguage(), 8);
+        asrLanguageCombo = new JComboBox<>(Language.SUPPORTED_ASR.toArray(Language.AsrLanguage[]::new));
+        Language.AsrLanguage currentAsr = Language.findAsrByCode(settings.asrLanguage());
+        if (currentAsr != null) asrLanguageCombo.setSelectedItem(currentAsr);
+
+        targetLanguageCombo = new JComboBox<>(Language.CURATED_TARGETS.toArray(Language.MtTargetLanguage[]::new));
+        Language.MtTargetLanguage currentTarget = Language.findTargetByMtName(settings.targetLanguage());
+        if (currentTarget != null) targetLanguageCombo.setSelectedItem(currentTarget);
+
         asrSampleRateSpinner = new JSpinner(new SpinnerNumberModel(settings.asrSampleRate(), 8000, 48000, 1000));
         asrVadThresholdSpinner = new JSpinner(new SpinnerNumberModel((double) settings.asrVadThreshold(), 0.0, 1.0, 0.1));
         asrVadSilenceMsSpinner = new JSpinner(new SpinnerNumberModel(settings.asrVadSilenceMs(), 100, 5000, 100));
@@ -180,7 +189,10 @@ public final class SettingsDialog extends JDialog {
         c.weightx = 1;
 
         addLabel(panel, c, "识别语言");
-        addField(panel, c, asrLanguageField);
+        addField(panel, c, asrLanguageCombo);
+
+        addLabel(panel, c, "翻译目标语言");
+        addField(panel, c, targetLanguageCombo);
 
         addLabel(panel, c, "采样率 (Hz)");
         addField(panel, c, asrSampleRateSpinner);
@@ -287,7 +299,10 @@ public final class SettingsDialog extends JDialog {
         settings.setRealtimeUrl(realtimeUrlField.getText());
         settings.setAsrModel(asrModelField.getText());
         settings.setMtModel(mtModelField.getText());
-        settings.setAsrLanguage(asrLanguageField.getText());
+        Language.AsrLanguage selectedAsr = (Language.AsrLanguage) asrLanguageCombo.getSelectedItem();
+        settings.setAsrLanguage(selectedAsr != null ? selectedAsr.code() : "en");
+        Language.MtTargetLanguage selectedTarget = (Language.MtTargetLanguage) targetLanguageCombo.getSelectedItem();
+        settings.setTargetLanguage(selectedTarget != null ? selectedTarget.mtName() : "Chinese");
         settings.setAsrSampleRate(((Number) asrSampleRateSpinner.getValue()).intValue());
         settings.setAsrVadThreshold(((Number) asrVadThresholdSpinner.getValue()).floatValue());
         settings.setAsrVadSilenceMs(((Number) asrVadSilenceMsSpinner.getValue()).intValue());

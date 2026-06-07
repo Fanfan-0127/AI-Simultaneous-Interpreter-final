@@ -14,8 +14,14 @@ public final class SubtitleEntry {
     private long sourceVersion;
     private SubtitleStatus status;
     private final List<SubtitleRevision> revisions;
+    private final String sourceLanguage;
+    private final String targetLanguage;
 
     public SubtitleEntry(String sourceText, boolean finalResult) {
+        this(sourceText, finalResult, "en", "Chinese");
+    }
+
+    public SubtitleEntry(String sourceText, boolean finalResult, String sourceLanguage, String targetLanguage) {
         this.id = UUID.randomUUID().toString();
         this.createdAt = Instant.now();
         this.sourceText = sourceText;
@@ -23,6 +29,8 @@ public final class SubtitleEntry {
         this.finalResult = finalResult;
         this.status = finalResult ? SubtitleStatus.FINAL : SubtitleStatus.DRAFT;
         this.revisions = new ArrayList<>();
+        this.sourceLanguage = sourceLanguage != null ? sourceLanguage : "en";
+        this.targetLanguage = targetLanguage != null ? targetLanguage : "Chinese";
     }
 
     public String id() { return id; }
@@ -33,6 +41,8 @@ public final class SubtitleEntry {
     public long sourceVersion() { return sourceVersion; }
     public SubtitleStatus status() { return status; }
     public List<SubtitleRevision> revisions() { return List.copyOf(revisions); }
+    public String sourceLanguage() { return sourceLanguage; }
+    public String targetLanguage() { return targetLanguage; }
 
     public SubtitleRevision update(String sourceText, boolean finalResult) {
         String oldSourceText = this.sourceText;

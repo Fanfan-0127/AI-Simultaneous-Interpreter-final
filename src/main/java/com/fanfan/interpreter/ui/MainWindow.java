@@ -58,11 +58,11 @@ import java.util.concurrent.Executors;
 
 public final class MainWindow extends JFrame {
     private final UserSettings userSettings = UserSettings.load();
-    private final AppConfig config = AppConfig.fromSettings(userSettings);
+    private AppConfig config = AppConfig.fromSettings(userSettings);
     private final SubtitleStore subtitleStore = new SubtitleStore();
     private final AudioCaptureService audioCaptureService = new AudioCaptureService();
     private final LatencyTracker latencyTracker = new LatencyTracker();
-    private final TranslationScheduler translationScheduler = new TranslationScheduler(new QwenMtTranslator(config), userSettings.draftDelayMs());
+    private TranslationScheduler translationScheduler = new TranslationScheduler(new QwenMtTranslator(config), userSettings.draftDelayMs(), config.targetLanguage());
     private final StableTranscriptScheduler stableTranscriptScheduler = new StableTranscriptScheduler(config.asrStabilityDelayMs());
     private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "session-control");
@@ -298,7 +298,7 @@ public final class MainWindow extends JFrame {
                 this,
                 "AI 同声传译助手\n\n" +
                 "基于 DashScope Qwen ASR + MT 的实时同声传译工具\n" +
-                "适用于英文技术会议、在线课程的实时字幕翻译\n\n" +
+                "支持 28 种语言语音识别 + 多语言翻译字幕\n\n" +
                 "版本: 0.1.0",
                 "关于",
                 JOptionPane.INFORMATION_MESSAGE));
@@ -308,8 +308,15 @@ public final class MainWindow extends JFrame {
         return bar;
     }
 
+    private void refreshConfig() {
+        config = AppConfig.fromSettings(userSettings);
+        translationScheduler.close();
+        translationScheduler = new TranslationScheduler(new QwenMtTranslator(config), userSettings.draftDelayMs(), config.targetLanguage());
+    }
+
     private void openSettings() {
         SettingsDialog.show(this, userSettings, () -> {
+            refreshConfig();
             floatingSourceColor = SettingsDialog.parseColor(userSettings.floatingSourceColor(), Color.WHITE);
             floatingTranslationColor = SettingsDialog.parseColor(userSettings.floatingTranslationColor(), new Color(255, 230, 150));
             floatingSourceFont = userSettings.floatingSourceFont();
@@ -351,6 +358,7 @@ public final class MainWindow extends JFrame {
         startButton.setEnabled(false);
         refreshButton.setEnabled(false);
         statusLabel.setText("正在连接 Qwen ASR...");
+        subtitleStore.setLanguages(config.asrLanguage(), config.targetLanguage());
         subtitleStore.clear();
         stableTranscriptScheduler.clear();
         latencyTracker.reset();
@@ -462,7 +470,7 @@ public final class MainWindow extends JFrame {
         content.append("<h3>术语列表（共 ").append(terms.size()).append(" 个）</h3>");
         content.append("<table border='1' cellpadding='6' cellspacing='0'>");
         content.append("<tr style='background-color:#f0f0f0;'>");
-        content.append("<th><b>英文术语</b></th>");
+        content.append("<th><b>术语</b></th>");
         content.append("<th><b>出现次数</b></th>");
         content.append("</tr>");
 
@@ -562,7 +570,7 @@ public final class MainWindow extends JFrame {
     }
 
     private void onStableTranscript(String text, boolean finalResult) {
-        String correctedText = TranscriptCorrector.correct(text);
+        String correctedText = TranscriptCorrector.correct(text, config.asrLanguage());
         boolean stableSentence = SentenceStabilityDetector.isStable(text, finalResult);
         SwingUtilities.invokeLater(() -> {
             SubtitleUpdate update = subtitleStore.applyTranscript(text, finalResult);
@@ -659,7 +667,7 @@ public final class MainWindow extends JFrame {
     }
 
     static final class SubtitleTableModel extends AbstractTableModel {
-        private final String[] columns = {"时间", "英文原文", "中文译文"};
+        private final String[] columns = {"时间", "原文", "译文"};
         private List<SubtitleEntry> entries = List.of();
 
         void setEntries(List<SubtitleEntry> entries) {

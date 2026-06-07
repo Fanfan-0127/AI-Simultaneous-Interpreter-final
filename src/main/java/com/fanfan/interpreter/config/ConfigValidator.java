@@ -30,6 +30,15 @@ public final class ConfigValidator {
             warnings.add("请确保可以访问 dashscope.aliyuncs.com");
         }
 
+        if (Language.findAsrByCode(config.asrLanguage()) == null && !config.asrLanguage().isBlank()) {
+            warnings.add("ASR 语言代码 \"" + config.asrLanguage() + "\" 可能不被支持");
+        }
+
+        if (Language.findTargetByMtName(config.targetLanguage()) == null && !config.targetLanguage().isBlank()
+                && !"auto".equalsIgnoreCase(config.targetLanguage())) {
+            warnings.add("目标语言 \"" + config.targetLanguage() + "\" 不在常用列表中，翻译可能仍可正常工作");
+        }
+
         if (config.asrSampleRate() != 16000) {
             warnings.add("ASR 采样率为 " + config.asrSampleRate() + " Hz，推荐使用 16000 Hz");
         }

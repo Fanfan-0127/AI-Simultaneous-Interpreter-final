@@ -7,41 +7,45 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class QwenMtTranslatorTest {
 
+    private static final String TARGET_ZH = "Chinese";
+
     @Test
     void cacheKey_normalizesWhitespace() {
-        assertEquals("hello world", QwenMtTranslator.cacheKey("  Hello World  "));
+        assertEquals("hello world|" + TARGET_ZH,
+                QwenMtTranslator.cacheKey("  Hello World  ", TARGET_ZH));
     }
 
     @Test
     void cacheKey_normalizesCase() {
-        assertEquals("hello world", QwenMtTranslator.cacheKey("HELLO WORLD"));
+        assertEquals("hello world|" + TARGET_ZH,
+                QwenMtTranslator.cacheKey("HELLO WORLD", TARGET_ZH));
     }
 
     @Test
-    void cacheKey_nullReturnsEmpty() {
-        assertEquals("", QwenMtTranslator.cacheKey(null));
+    void cacheKey_nullReturnsLangOnly() {
+        assertEquals("|" + TARGET_ZH, QwenMtTranslator.cacheKey(null, TARGET_ZH));
     }
 
     @Test
-    void cacheKey_blankReturnsBlank() {
-        assertTrue(QwenMtTranslator.cacheKey("   ").isEmpty());
+    void cacheKey_blankReturnsLangOnly() {
+        assertEquals("|" + TARGET_ZH, QwenMtTranslator.cacheKey("   ", TARGET_ZH));
     }
 
     @Test
-    void translateEnglishToChinese_usesCacheWhenPopulated() throws Exception {
+    void translate_usesCacheWhenPopulated() throws Exception {
         var translator = new QwenMtTranslator(fakeConfig());
-        translator.translationCache.put(QwenMtTranslator.cacheKey("cached text"), "缓存结果");
-        String result = translator.translateEnglishToChinese("cached text");
+        translator.translationCache.put(QwenMtTranslator.cacheKey("cached text", TARGET_ZH), "缓存结果");
+        String result = translator.translate("cached text", TARGET_ZH);
         assertEquals("缓存结果", result);
     }
 
     @Test
-    void translateEnglishToChinese_cacheIsCaseInsensitive() throws Exception {
+    void translate_cacheIsCaseInsensitive() throws Exception {
         var translator = new QwenMtTranslator(fakeConfig());
-        translator.translationCache.put(QwenMtTranslator.cacheKey("hello world"), "你好世界");
-        String result = translator.translateEnglishToChinese("HELLO WORLD");
+        translator.translationCache.put(QwenMtTranslator.cacheKey("hello world", TARGET_ZH), "你好世界");
+        String result = translator.translate("HELLO WORLD", TARGET_ZH);
         assertEquals("你好世界", result);
-        result = translator.translateEnglishToChinese("  hello world  ");
+        result = translator.translate("  hello world  ", TARGET_ZH);
         assertEquals("你好世界", result);
     }
 
@@ -63,7 +67,7 @@ class QwenMtTranslatorTest {
         return new AppConfig(
                 null, "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
                 "qwen3-asr-flash-realtime", "qwen-mt-flash",
-                "en", 16000, 0.0f, 800, 700
+                "en", "Chinese", 16000, 0.0f, 800, 700
         );
     }
 }
