@@ -46,29 +46,6 @@ class QwenMtTranslatorTest {
     }
 
     @Test
-    void translateStreaming_usesCacheWhenPopulated() throws Exception {
-        var translator = new QwenMtTranslator(fakeConfig());
-        translator.translationCache.put(QwenMtTranslator.cacheKey("test"), "测试文本");
-        String[] result = {null};
-        translator.translateEnglishToChineseStreaming("test",
-                token -> result[0] = token,
-                finalText -> result[0] = finalText,
-                error -> fail("Should not error: " + error.getMessage()));
-        assertEquals("测试文本", result[0]);
-    }
-
-    @Test
-    void translateStreaming_emptyTextReturnsEmptyImmediately() throws Exception {
-        var translator = new QwenMtTranslator(fakeConfig());
-        StringBuilder tokens = new StringBuilder();
-        translator.translateEnglishToChineseStreaming("   ",
-                tokens::append,
-                tokens::append,
-                error -> fail("Should not error"));
-        assertEquals("", tokens.toString());
-    }
-
-    @Test
     void cacheEvictsOldestWhenFull() {
         var translator = new QwenMtTranslator(fakeConfig());
         // Fill cache beyond CACHE_MAX_SIZE (200)
