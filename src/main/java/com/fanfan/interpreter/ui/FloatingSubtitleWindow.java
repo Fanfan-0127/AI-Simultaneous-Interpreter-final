@@ -20,11 +20,9 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
-import java.awt.Toolkit;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
-import java.util.Map;
 
 public final class FloatingSubtitleWindow extends JWindow {
     private static final int WINDOW_WIDTH = 960;
@@ -279,19 +277,15 @@ public final class FloatingSubtitleWindow extends JWindow {
 
     // ---- custom components ----
 
-    /** JTextArea that renders a rounded dark backdrop, drop shadow, and text. */
+    /** JTextArea that renders a rounded dark backdrop behind the text. */
     private static final class ShadowTextArea extends JTextArea {
-        private static final Color SHADOW_COLOR = new Color(0, 0, 0, 64);
         private static final int BG_ARC = 10;
 
-        private final Map<?, ?> desktopHints;
         private float animAlpha = 1f;
         private int bgAlpha = 180;
 
         ShadowTextArea(String initialText) {
             super(initialText);
-            desktopHints = (Map<?, ?>) Toolkit.getDefaultToolkit()
-                    .getDesktopProperty("awt.font.desktophints");
         }
 
         void setAnimAlpha(float alpha) { this.animAlpha = alpha; }
@@ -309,17 +303,10 @@ public final class FloatingSubtitleWindow extends JWindow {
                 // rounded dark backdrop
                 g2d.setColor(new Color(0, 0, 0, bgAlpha));
                 g2d.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), BG_ARC, BG_ARC));
-                // drop shadow
-                if (desktopHints != null) {
-                    g2d.addRenderingHints(desktopHints);
-                }
-                g2d.setColor(SHADOW_COLOR);
-                g2d.translate(1, 1);
-                super.paintComponent(g2d);
             } finally {
                 g2d.dispose();
             }
-            // foreground text
+            // single-pass text rendering (no broken shadow)
             super.paintComponent(g);
         }
     }
