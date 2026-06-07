@@ -21,7 +21,7 @@ public record AppConfig(
                 intEnvOrDefault("ASR_SAMPLE_RATE", 16000),
                 floatEnvOrDefault("ASR_VAD_THRESHOLD", 0.0f),
                 intEnvOrDefault("ASR_VAD_SILENCE_MS", 800),
-                intEnvOrDefault("ASR_STABILITY_DELAY_MS", 700)
+                intEnvOrDefault("ASR_STABILITY_DELAY_MS", 300)
         );
     }
 
