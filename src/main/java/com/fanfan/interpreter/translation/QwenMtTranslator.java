@@ -40,7 +40,8 @@ public final class QwenMtTranslator implements Translator {
         return result;
     }
 
-    public String translateEnglishToChineseStreaming(
+    @Override
+    public void translateEnglishToChineseStreaming(
             String englishText,
             Consumer<String> onToken,
             Consumer<String> onComplete,
@@ -51,7 +52,7 @@ public final class QwenMtTranslator implements Translator {
         if (cached != null) {
             onToken.accept(cached);
             onComplete.accept(cached);
-            return cached;
+            return;
         }
         callQwenMtStreaming(englishText, token -> {
             translationCache.put(key, token);
@@ -62,7 +63,6 @@ public final class QwenMtTranslator implements Translator {
             }
             onComplete.accept(finalText);
         }, onError);
-        return null;
     }
 
     @Override

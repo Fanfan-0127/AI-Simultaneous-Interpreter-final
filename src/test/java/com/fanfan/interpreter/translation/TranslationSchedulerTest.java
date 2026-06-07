@@ -5,9 +5,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -80,6 +82,50 @@ class TranslationSchedulerTest {
             assertTrue(results.await(2, TimeUnit.SECONDS));
             assertEquals(List.of("draft:new words"), translatedResults);
             assertEquals(2, translator.calls.get());
+        }
+    }
+
+    @Test
+    void throttlesStreamingTokensButDeliversFinal() throws Exception {
+        RapidTokenTranslator translator = new RapidTokenTranslator();
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator)) {
+            SubtitleEntry entry = new SubtitleEntry("hello world", false);
+            List<String> delivered = new CopyOnWriteArrayList<>();
+            CountDownLatch done = new CountDownLatch(1);
+
+            scheduler.translate(entry, false, result -> {
+                delivered.add(result.translatedText());
+                if (result.translatedText().equals("final")) {
+                    done.countDown();
+                }
+            }, exception -> {
+            });
+
+            assertTrue(done.await(2, TimeUnit.SECONDS));
+            // Should have fewer deliveries than tokens (throttle)
+            assertTrue(delivered.size() < translator.totalTokens,
+                    "Throttle should reduce deliveries; got " + delivered.size() + " of " + translator.totalTokens);
+            // Final token must always be delivered
+            assertEquals("final", delivered.getLast());
+        }
+    }
+
+    private static final class RapidTokenTranslator implements Translator {
+        final int totalTokens = 50;
+
+        @Override
+        public String translateEnglishToChinese(String englishText) {
+            return "final";
+        }
+
+        @Override
+        public void translateEnglishToChineseStreaming(
+                String englishText, Consumer<String> onToken,
+                Consumer<String> onComplete, Consumer<Exception> onError) {
+            for (int i = 1; i <= totalTokens; i++) {
+                onToken.accept("token-" + i);
+            }
+            onComplete.accept("final");
         }
     }
 

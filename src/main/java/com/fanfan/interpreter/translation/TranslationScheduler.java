@@ -14,6 +14,7 @@ import java.util.function.Consumer;
 public final class TranslationScheduler implements AutoCloseable {
     private static final long DRAFT_DELAY_MS = 180;
     private static final long CORRECTION_DELAY_MS = 650;
+    private static final long TOKEN_THROTTLE_MS = 250;
 
     private final Translator translator;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
@@ -100,11 +101,36 @@ public final class TranslationScheduler implements AutoCloseable {
                 if (stale(entryId, sourceVersion)) {
                     return;
                 }
-                String translatedText = translator.translateEnglishToChinese(sourceText);
-                if (stale(entryId, sourceVersion)) {
-                    return;
-                }
-                resultConsumer.accept(new TranslationResult(entryId, sourceVersion, translatedText));
+                String[] lastText = {""};
+                long[] lastDelivery = {0};
+                translator.translateEnglishToChineseStreaming(sourceText,
+                        token -> {
+                            if (stale(entryId, sourceVersion)) {
+                                return;
+                            }
+                            long now = System.currentTimeMillis();
+                            if (now - lastDelivery[0] < TOKEN_THROTTLE_MS) {
+                                return;
+                            }
+                            lastDelivery[0] = now;
+                            lastText[0] = token;
+                            resultConsumer.accept(new TranslationResult(entryId, sourceVersion, token));
+                        },
+                        finalText -> {
+                            if (stale(entryId, sourceVersion)) {
+                                return;
+                            }
+                            if (finalText.equals(lastText[0])) {
+                                return;
+                            }
+                            resultConsumer.accept(new TranslationResult(entryId, sourceVersion, finalText));
+                        },
+                        error -> {
+                            if (!stale(entryId, sourceVersion)) {
+                                errorConsumer.accept((Exception) error);
+                            }
+                        }
+                );
             } catch (Exception exception) {
                 errorConsumer.accept(exception);
             }
