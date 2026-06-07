@@ -2,6 +2,7 @@ package com.fanfan.interpreter.ui;
 
 import com.fanfan.interpreter.asr.AsrClient;
 import com.fanfan.interpreter.asr.QwenRealtimeAsrClient;
+import com.fanfan.interpreter.asr.SentenceStabilityDetector;
 import com.fanfan.interpreter.asr.StableTranscriptScheduler;
 import com.fanfan.interpreter.asr.TranscriptCorrector;
 import com.fanfan.interpreter.audio.AudioCaptureService;
@@ -436,13 +437,15 @@ public final class MainWindow extends JFrame {
 
     private void onStableTranscript(String text, boolean finalResult) {
         String correctedText = TranscriptCorrector.correct(text);
+        boolean stableSentence = SentenceStabilityDetector.isStable(text, finalResult);
         SwingUtilities.invokeLater(() -> {
             SubtitleUpdate update = subtitleStore.applyTranscript(text, finalResult);
             subtitleTableModel.setEntries(update.entries());
             correctionTableModel.setRevisions(update.revisions());
             updateLiveSubtitle(update.entry());
             latencyTracker.markTranslationStarted();
-            translationScheduler.translate(update.entry(), finalResult, correctedText, this::onTranslation, this::onTranslationError);
+            translationScheduler.translate(update.entry(), finalResult, correctedText, stableSentence,
+                    this::onTranslation, this::onTranslationError);
         });
     }
 

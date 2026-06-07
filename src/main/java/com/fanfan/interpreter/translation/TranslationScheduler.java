@@ -40,13 +40,24 @@ public final class TranslationScheduler implements AutoCloseable {
             Consumer<TranslationResult> resultConsumer,
             Consumer<Exception> errorConsumer
     ) {
-        translate(entry, finalResult, entry.sourceText(), resultConsumer, errorConsumer);
+        translate(entry, finalResult, entry.sourceText(), false, resultConsumer, errorConsumer);
     }
 
     public void translate(
             SubtitleEntry entry,
             boolean finalResult,
             String translationSourceText,
+            Consumer<TranslationResult> resultConsumer,
+            Consumer<Exception> errorConsumer
+    ) {
+        translate(entry, finalResult, translationSourceText, false, resultConsumer, errorConsumer);
+    }
+
+    public void translate(
+            SubtitleEntry entry,
+            boolean finalResult,
+            String translationSourceText,
+            boolean stableSentence,
             Consumer<TranslationResult> resultConsumer,
             Consumer<Exception> errorConsumer
     ) {
@@ -64,12 +75,14 @@ public final class TranslationScheduler implements AutoCloseable {
                 DRAFT_DELAY_MS,
                 () -> submitDraft(entryId, sourceVersion, sourceText, resultConsumer, errorConsumer)
         );
-        schedule(
-                pendingCorrections,
-                entryId,
-                finalResult ? 0 : CORRECTION_DELAY_MS,
-                () -> submitCorrection(entryId, sourceVersion, sourceText, draftText, resultConsumer, errorConsumer)
-        );
+        if (finalResult || stableSentence) {
+            schedule(
+                    pendingCorrections,
+                    entryId,
+                    finalResult ? 0 : CORRECTION_DELAY_MS,
+                    () -> submitCorrection(entryId, sourceVersion, sourceText, draftText, resultConsumer, errorConsumer)
+            );
+        }
     }
 
     @Override
