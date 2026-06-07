@@ -60,7 +60,7 @@ public final class MainWindow extends JFrame {
     private final SubtitleStore subtitleStore = new SubtitleStore();
     private final AudioCaptureService audioCaptureService = new AudioCaptureService();
     private final LatencyTracker latencyTracker = new LatencyTracker();
-    private final TranslationScheduler translationScheduler = new TranslationScheduler(new QwenMtTranslator(config));
+    private final TranslationScheduler translationScheduler = new TranslationScheduler(new QwenMtTranslator(config), userSettings.draftDelayMs());
     private final StableTranscriptScheduler stableTranscriptScheduler = new StableTranscriptScheduler(config.asrStabilityDelayMs());
     private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "session-control");

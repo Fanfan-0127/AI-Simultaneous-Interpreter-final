@@ -17,7 +17,7 @@ class TranslationSchedulerTest {
     @Test
     void debouncesDraftTranslationsToLatestSourceText() throws Exception {
         RecordingTranslator translator = new RecordingTranslator();
-        try (TranslationScheduler scheduler = new TranslationScheduler(translator)) {
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180)) {
             SubtitleEntry entry = new SubtitleEntry("hello", false);
             scheduler.translate(entry, false, result -> {
             }, exception -> {
@@ -37,7 +37,7 @@ class TranslationSchedulerTest {
     @Test
     void finalResultDeliversDraftAndCorrectionWithDifferentTexts() throws Exception {
         RecordingTranslator translator = new RecordingTranslator();
-        try (TranslationScheduler scheduler = new TranslationScheduler(translator)) {
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180)) {
             SubtitleEntry entry = new SubtitleEntry("hello world", true);
             List<String> results = new CopyOnWriteArrayList<>();
             CountDownLatch latch = new CountDownLatch(2);
@@ -55,7 +55,7 @@ class TranslationSchedulerTest {
     @Test
     void correctionSkippedWhenSameAsDraft() throws Exception {
         RecordingTranslator translator = new RecordingTranslator();
-        try (TranslationScheduler scheduler = new TranslationScheduler(translator)) {
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180)) {
             SubtitleEntry entry = new SubtitleEntry("hello world", true);
             List<String> results = new CopyOnWriteArrayList<>();
             CountDownLatch latch = new CountDownLatch(1);
@@ -74,7 +74,7 @@ class TranslationSchedulerTest {
     @Test
     void skipsStaleQueuedTranslationResult() throws Exception {
         BlockingTranslator translator = new BlockingTranslator();
-        try (TranslationScheduler scheduler = new TranslationScheduler(translator)) {
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180)) {
             SubtitleEntry entry = new SubtitleEntry("old words", false);
             CountDownLatch results = new CountDownLatch(1);
             List<String> translatedResults = new ArrayList<>();

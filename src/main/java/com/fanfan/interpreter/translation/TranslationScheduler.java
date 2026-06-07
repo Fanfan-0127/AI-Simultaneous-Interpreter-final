@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public final class TranslationScheduler implements AutoCloseable {
-    private static final long DRAFT_DELAY_MS = 180;
+    private final long draftDelayMs;
 
     private final Translator translator;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
@@ -30,8 +30,9 @@ public final class TranslationScheduler implements AutoCloseable {
     private final Map<String, Long> latestVersions = new ConcurrentHashMap<>();
     private final Map<String, String> deliveredDrafts = new ConcurrentHashMap<>();
 
-    public TranslationScheduler(Translator translator) {
+    public TranslationScheduler(Translator translator, long draftDelayMs) {
         this.translator = translator;
+        this.draftDelayMs = draftDelayMs;
     }
 
     public void translate(
@@ -82,7 +83,7 @@ public final class TranslationScheduler implements AutoCloseable {
         String draftText = entry.translatedText();
         String correctionText = correctedSourceText != null ? correctedSourceText : rawSourceText;
         latestVersions.put(entryId, sourceVersion);
-        long draftDelay = finalResult ? 0 : DRAFT_DELAY_MS;
+        long draftDelay = finalResult ? 0 : draftDelayMs;
         schedule(
                 pendingDrafts,
                 entryId,
