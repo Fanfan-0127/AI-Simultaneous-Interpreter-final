@@ -29,6 +29,9 @@ public final class UserSettings {
     @SerializedName("asr_language")
     private String asrLanguage = "en";
 
+    @SerializedName("target_language")
+    private String targetLanguage = "Chinese";
+
     @SerializedName("asr_sample_rate")
     private int asrSampleRate = 16000;
 
@@ -127,6 +130,7 @@ public final class UserSettings {
                 envOrValue("DASHSCOPE_REALTIME_MODEL", asrModel),
                 envOrValue("DASHSCOPE_MT_MODEL", mtModel),
                 envOrValue("ASR_LANGUAGE", asrLanguage),
+                envOrValue("TARGET_LANGUAGE", targetLanguage),
                 intEnvOrValue("ASR_SAMPLE_RATE", asrSampleRate),
                 floatEnvOrValue("ASR_VAD_THRESHOLD", asrVadThreshold),
                 intEnvOrValue("ASR_VAD_SILENCE_MS", asrVadSilenceMs),
@@ -150,6 +154,9 @@ public final class UserSettings {
 
     public String asrLanguage() { return asrLanguage; }
     public void setAsrLanguage(String asrLanguage) { this.asrLanguage = asrLanguage; }
+
+    public String targetLanguage() { return targetLanguage; }
+    public void setTargetLanguage(String targetLanguage) { this.targetLanguage = targetLanguage != null ? targetLanguage : "Chinese"; }
 
     public int asrSampleRate() { return asrSampleRate; }
     public void setAsrSampleRate(int asrSampleRate) { this.asrSampleRate = asrSampleRate; }

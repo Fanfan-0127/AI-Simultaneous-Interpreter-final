@@ -20,6 +20,13 @@ public final class SubtitleTxtExporter {
 
     public static String format(List<SubtitleEntry> entries) {
         StringBuilder builder = new StringBuilder();
+        if (!entries.isEmpty()) {
+            SubtitleEntry first = entries.getFirst();
+            builder.append("# Source: ").append(first.sourceLanguage())
+                    .append(" → Target: ").append(first.targetLanguage())
+                    .append(System.lineSeparator());
+            builder.append(SEPARATOR).append(System.lineSeparator());
+        }
         int index = 0;
         for (SubtitleEntry entry : entries) {
             if (entry.sourceText().isBlank() && entry.translatedText().isBlank()) continue;

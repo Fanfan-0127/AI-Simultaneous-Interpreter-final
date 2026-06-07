@@ -73,16 +73,31 @@ public final class TranscriptCorrector {
     private TranscriptCorrector() {
     }
 
+    /** Backward-compatible: assumes English source. */
     public static String correct(String transcript) {
+        return correct(transcript, "en");
+    }
+
+    /**
+     * Correct the transcript. English-specific replacements are only applied when
+     * the source language is English.
+     */
+    public static String correct(String transcript, String asrLanguage) {
         if (transcript == null || transcript.isBlank()) {
             return "";
         }
         String corrected = transcript.strip().replaceAll("\\s+", " ");
-        corrected = DUPLICATE_WORDS.matcher(corrected).replaceAll("$1");
-        for (Replacement replacement : REPLACEMENTS) {
-            corrected = replacement.apply(corrected);
+        if (isEnglish(asrLanguage)) {
+            corrected = DUPLICATE_WORDS.matcher(corrected).replaceAll("$1");
+            for (Replacement replacement : REPLACEMENTS) {
+                corrected = replacement.apply(corrected);
+            }
         }
         return corrected;
+    }
+
+    private static boolean isEnglish(String asrLanguage) {
+        return "en".equalsIgnoreCase(asrLanguage == null ? "" : asrLanguage.strip());
     }
 
     public static void addTerms(Collection<String> terms) {

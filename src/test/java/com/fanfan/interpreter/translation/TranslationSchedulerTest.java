@@ -17,7 +17,7 @@ class TranslationSchedulerTest {
     @Test
     void debouncesDraftTranslationsToLatestSourceText() throws Exception {
         RecordingTranslator translator = new RecordingTranslator();
-        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180)) {
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180, "Chinese")) {
             SubtitleEntry entry = new SubtitleEntry("hello", false);
             scheduler.translate(entry, false, result -> {
             }, exception -> {
@@ -37,7 +37,7 @@ class TranslationSchedulerTest {
     @Test
     void finalResultDeliversDraftAndCorrectionWithDifferentTexts() throws Exception {
         RecordingTranslator translator = new RecordingTranslator();
-        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180)) {
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180, "Chinese")) {
             SubtitleEntry entry = new SubtitleEntry("hello world", true);
             List<String> results = new CopyOnWriteArrayList<>();
             CountDownLatch latch = new CountDownLatch(2);
@@ -55,7 +55,7 @@ class TranslationSchedulerTest {
     @Test
     void correctionSkippedWhenSameAsDraft() throws Exception {
         RecordingTranslator translator = new RecordingTranslator();
-        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180)) {
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180, "Chinese")) {
             SubtitleEntry entry = new SubtitleEntry("hello world", true);
             List<String> results = new CopyOnWriteArrayList<>();
             CountDownLatch latch = new CountDownLatch(1);
@@ -74,7 +74,7 @@ class TranslationSchedulerTest {
     @Test
     void skipsStaleQueuedTranslationResult() throws Exception {
         BlockingTranslator translator = new BlockingTranslator();
-        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180)) {
+        try (TranslationScheduler scheduler = new TranslationScheduler(translator, 180, "Chinese")) {
             SubtitleEntry entry = new SubtitleEntry("old words", false);
             CountDownLatch results = new CountDownLatch(1);
             List<String> translatedResults = new ArrayList<>();
@@ -104,9 +104,9 @@ class TranslationSchedulerTest {
         private final List<String> drafts = new ArrayList<>();
 
         @Override
-        public String translateEnglishToChinese(String englishText) {
-            drafts.add(englishText);
-            return "draft:" + englishText;
+        public String translate(String text, String targetLangMt) {
+            drafts.add(text);
+            return "draft:" + text;
         }
 
         List<String> drafts() {
@@ -120,13 +120,13 @@ class TranslationSchedulerTest {
         private final AtomicInteger calls = new AtomicInteger();
 
         @Override
-        public String translateEnglishToChinese(String englishText) throws Exception {
+        public String translate(String text, String targetLangMt) throws Exception {
             calls.incrementAndGet();
-            if (englishText.equals("old words")) {
+            if (text.equals("old words")) {
                 started.countDown();
                 assertTrue(release.await(2, TimeUnit.SECONDS));
             }
-            return "draft:" + englishText;
+            return "draft:" + text;
         }
     }
 }

@@ -10,6 +10,16 @@ public final class SubtitleStore {
     private final List<SubtitleEntry> entries = new CopyOnWriteArrayList<>();
     private final List<SubtitleRevision> revisions = new CopyOnWriteArrayList<>();
     private volatile SubtitleEntry activeEntry;
+    private volatile String sourceLanguage = "en";
+    private volatile String targetLanguage = "Chinese";
+
+    public void setLanguages(String sourceLanguage, String targetLanguage) {
+        this.sourceLanguage = sourceLanguage != null ? sourceLanguage : "en";
+        this.targetLanguage = targetLanguage != null ? targetLanguage : "Chinese";
+    }
+
+    public String sourceLanguage() { return sourceLanguage; }
+    public String targetLanguage() { return targetLanguage; }
 
     public synchronized SubtitleUpdate applyTranscript(String text, boolean finalResult) {
         if (text == null || text.isBlank()) {
@@ -17,7 +27,7 @@ public final class SubtitleStore {
         }
         String normalizedText = text.strip();
         if (activeEntry == null || activeEntry.finalResult()) {
-            activeEntry = new SubtitleEntry(normalizedText, finalResult);
+            activeEntry = new SubtitleEntry(normalizedText, finalResult, sourceLanguage, targetLanguage);
             entries.add(activeEntry);
             SubtitleEntry updatedEntry = activeEntry;
             if (finalResult) {
@@ -26,7 +36,7 @@ public final class SubtitleStore {
             return new SubtitleUpdate(updatedEntry, snapshot(), revisionSnapshot());
         }
         if (shouldStartNewDraft(normalizedText)) {
-            activeEntry = new SubtitleEntry(splitDraftText(normalizedText), finalResult);
+            activeEntry = new SubtitleEntry(splitDraftText(normalizedText), finalResult, sourceLanguage, targetLanguage);
             entries.add(activeEntry);
             SubtitleEntry updatedEntry = activeEntry;
             if (finalResult) {

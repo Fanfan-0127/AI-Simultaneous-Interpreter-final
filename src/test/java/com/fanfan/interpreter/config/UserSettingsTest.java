@@ -24,6 +24,7 @@ class UserSettingsTest {
         assertEquals("qwen3-asr-flash-realtime", settings.asrModel());
         assertEquals("qwen-mt-flash", settings.mtModel());
         assertEquals("en", settings.asrLanguage());
+        assertEquals("Chinese", settings.targetLanguage());
         assertEquals(16000, settings.asrSampleRate());
         assertEquals(800, settings.asrVadSilenceMs());
         assertEquals(300, settings.asrStabilityDelayMs());
@@ -42,6 +43,7 @@ class UserSettingsTest {
         original.setRealtimeUrl("wss://custom.example.com/ws");
         original.setAsrModel("custom-asr-model");
         original.setAsrLanguage("zh");
+        original.setTargetLanguage("Japanese");
         original.setDraftDelayMs(300);
         original.setFloatingSourceColor("#00FF00");
         original.setFloatingSourceFontSize(32);
@@ -53,6 +55,7 @@ class UserSettingsTest {
         assertEquals("wss://custom.example.com/ws", loaded.realtimeUrl());
         assertEquals("custom-asr-model", loaded.asrModel());
         assertEquals("zh", loaded.asrLanguage());
+        assertEquals("Japanese", loaded.targetLanguage());
         assertEquals(300, loaded.draftDelayMs());
         assertEquals("#00FF00", loaded.floatingSourceColor());
         assertEquals(32, loaded.floatingSourceFontSize());
@@ -81,6 +84,7 @@ class UserSettingsTest {
         assertNotNull(config.asrModel());
         assertNotNull(config.mtModel());
         assertNotNull(config.asrLanguage());
+        assertNotNull(config.targetLanguage());
     }
 
     @Test

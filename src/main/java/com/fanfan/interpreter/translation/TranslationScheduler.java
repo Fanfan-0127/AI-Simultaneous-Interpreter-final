@@ -13,6 +13,7 @@ import java.util.function.Consumer;
 
 public final class TranslationScheduler implements AutoCloseable {
     private final long draftDelayMs;
+    private final String targetLangMt;
 
     private final Translator translator;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
@@ -30,9 +31,10 @@ public final class TranslationScheduler implements AutoCloseable {
     private final Map<String, Long> latestVersions = new ConcurrentHashMap<>();
     private final Map<String, String> deliveredDrafts = new ConcurrentHashMap<>();
 
-    public TranslationScheduler(Translator translator, long draftDelayMs) {
+    public TranslationScheduler(Translator translator, long draftDelayMs, String targetLangMt) {
         this.translator = translator;
         this.draftDelayMs = draftDelayMs;
+        this.targetLangMt = targetLangMt;
     }
 
     public void translate(
@@ -139,7 +141,7 @@ public final class TranslationScheduler implements AutoCloseable {
                 if (stale(entryId, sourceVersion)) {
                     return;
                 }
-                String translatedText = translator.translateEnglishToChinese(sourceText);
+                String translatedText = translator.translate(sourceText, targetLangMt);
                 if (stale(entryId, sourceVersion)) {
                     return;
                 }
@@ -164,7 +166,7 @@ public final class TranslationScheduler implements AutoCloseable {
                 if (stale(entryId, sourceVersion)) {
                     return;
                 }
-                String translatedText = translator.translateEnglishToChinese(sourceText);
+                String translatedText = translator.translate(sourceText, targetLangMt);
                 if (stale(entryId, sourceVersion)) {
                     return;
                 }
