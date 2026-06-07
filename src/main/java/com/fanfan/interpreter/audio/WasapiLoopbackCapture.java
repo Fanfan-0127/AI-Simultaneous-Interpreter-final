@@ -40,7 +40,7 @@ final class WasapiLoopbackCapture implements AutoCloseable {
     private static final int AUDCLNT_BUFFERFLAGS_SILENT = 0x00000002;
     private static final int CLSCTX_ALL = WTypes.CLSCTX_ALL;
     private static final int S_FALSE = 1;
-    private static final int CHUNK_BYTES = 3200;
+    private static final int CHUNK_BYTES = 1600;
     private static final long REFTIMES_PER_SECOND = 10_000_000L;
     private static final long BUFFER_DURATION_100NS = REFTIMES_PER_SECOND;
     private static final int TARGET_SAMPLE_RATE = 16_000;

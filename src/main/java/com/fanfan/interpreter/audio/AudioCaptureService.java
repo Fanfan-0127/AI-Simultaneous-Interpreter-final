@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 
 public final class AudioCaptureService implements AutoCloseable {
     public static final AudioFormat PCM_16K_MONO = new AudioFormat(16000.0f, 16, 1, true, false);
-    private static final int CHUNK_BYTES = 3200;
+    private static final int CHUNK_BYTES = 1600;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "audio-capture");
