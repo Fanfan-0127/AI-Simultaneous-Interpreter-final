@@ -47,5 +47,6 @@ public final class Theme {
 
         UIManager.put("Table.showHorizontalLines", true);
         UIManager.put("Table.showVerticalLines", false);
+        UIManager.put("Table.alternateRowColor", new Color(0x222236));
     }
 }

@@ -56,8 +56,17 @@ public final class UserSettings {
     @SerializedName("floating_translation_font_size")
     private int floatingTranslationFontSize = 28;
 
+    @SerializedName("floating_source_font")
+    private String floatingSourceFont = "SansSerif";
+
+    @SerializedName("floating_translation_font")
+    private String floatingTranslationFont = "SansSerif";
+
     @SerializedName("floating_line_spacing")
     private int floatingLineSpacing = 4;
+
+    @SerializedName("floating_bg_opacity")
+    private int floatingBgOpacity = 180;
 
     @SerializedName("theme")
     private String theme = "dark";
@@ -175,6 +184,21 @@ public final class UserSettings {
     public int floatingLineSpacing() { return floatingLineSpacing; }
     public void setFloatingLineSpacing(int floatingLineSpacing) {
         this.floatingLineSpacing = floatingLineSpacing;
+    }
+
+    public String floatingSourceFont() { return floatingSourceFont; }
+    public void setFloatingSourceFont(String floatingSourceFont) {
+        this.floatingSourceFont = floatingSourceFont != null ? floatingSourceFont : "SansSerif";
+    }
+
+    public String floatingTranslationFont() { return floatingTranslationFont; }
+    public void setFloatingTranslationFont(String floatingTranslationFont) {
+        this.floatingTranslationFont = floatingTranslationFont != null ? floatingTranslationFont : "SansSerif";
+    }
+
+    public int floatingBgOpacity() { return floatingBgOpacity; }
+    public void setFloatingBgOpacity(int floatingBgOpacity) {
+        this.floatingBgOpacity = Math.max(0, Math.min(floatingBgOpacity, 255));
     }
 
     public String theme() { return theme; }
