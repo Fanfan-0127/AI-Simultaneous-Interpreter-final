@@ -443,7 +443,7 @@ public final class MainWindow extends JFrame {
             SubtitleUpdate update = subtitleStore.applyTranscript(text, finalResult);
             subtitleTableModel.setEntries(update.entries());
             correctionTableModel.setRevisions(update.revisions());
-            updateLiveSubtitle(update.entry());
+            updateLiveSubtitle(update.entries());
             latencyTracker.markTranslationStarted();
             translationScheduler.translate(update.entry(), finalResult, text, correctedText, stableSentence,
                     this::onTranslation, this::onTranslationError);
@@ -457,7 +457,7 @@ public final class MainWindow extends JFrame {
                     result.entryId(), result.sourceVersion(), result.translatedText());
             subtitleTableModel.setEntries(entries);
             correctionTableModel.setRevisions(subtitleStore.revisionSnapshot());
-            updateLiveSubtitle(entries.isEmpty() ? null : entries.getLast());
+            updateLiveSubtitle(entries);
             updateLatencyDisplay();
         });
     }
@@ -488,13 +488,24 @@ public final class MainWindow extends JFrame {
         });
     }
 
-    private void updateLiveSubtitle(SubtitleEntry entry) {
-        if (entry == null) return;
-        String translated = entry.translatedText().isBlank() ? "翻译中..." : entry.translatedText();
-        previewSourceText = entry.sourceText();
+    private void updateLiveSubtitle(List<SubtitleEntry> entries) {
+        if (entries == null || entries.isEmpty()) return;
+        SubtitleEntry best = bestEntry(entries);
+        String translated = best.translatedText();
+        previewSourceText = best.sourceText();
         previewTranslatedText = translated;
         liveSubtitle.setText(previewText(previewSourceText, previewTranslatedText));
         floatingSubtitleWindow.updateSubtitle(previewSourceText, previewTranslatedText);
+    }
+
+    static SubtitleEntry bestEntry(List<SubtitleEntry> entries) {
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            SubtitleEntry entry = entries.get(i);
+            if (!entry.translatedText().isBlank()) {
+                return entry;
+            }
+        }
+        return entries.getLast();
     }
 
     static String previewText(String source, String translation) {

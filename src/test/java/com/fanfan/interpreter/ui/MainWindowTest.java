@@ -45,6 +45,33 @@ class MainWindowTest {
         assertEquals(0, events.getFirst().getFirstRow());
     }
 
+    @Test
+    void bestEntryPrefersTranslatedOverLatestUntranslated() {
+        com.fanfan.interpreter.model.SubtitleEntry a = new com.fanfan.interpreter.model.SubtitleEntry("hello", true);
+        a.updateTranslation("你好");
+        com.fanfan.interpreter.model.SubtitleEntry b = new com.fanfan.interpreter.model.SubtitleEntry("world", true);
+
+        assertEquals(a, MainWindow.bestEntry(List.of(a, b)));
+    }
+
+    @Test
+    void bestEntryReturnsLatestWhenAllTranslated() {
+        com.fanfan.interpreter.model.SubtitleEntry a = new com.fanfan.interpreter.model.SubtitleEntry("hello", true);
+        a.updateTranslation("你好");
+        com.fanfan.interpreter.model.SubtitleEntry b = new com.fanfan.interpreter.model.SubtitleEntry("world", true);
+        b.updateTranslation("世界");
+
+        assertEquals(b, MainWindow.bestEntry(List.of(a, b)));
+    }
+
+    @Test
+    void bestEntryReturnsLatestWhenNoneTranslated() {
+        com.fanfan.interpreter.model.SubtitleEntry a = new com.fanfan.interpreter.model.SubtitleEntry("hello", false);
+        com.fanfan.interpreter.model.SubtitleEntry b = new com.fanfan.interpreter.model.SubtitleEntry("world", false);
+
+        assertEquals(b, MainWindow.bestEntry(List.of(a, b)));
+    }
+
     private static List<TableModelEvent> tableEvents(MainWindow.SubtitleTableModel model) {
         List<TableModelEvent> events = new ArrayList<>();
         model.addTableModelListener(events::add);
